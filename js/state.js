@@ -1,4 +1,4 @@
-const SAVE_KEY = 'vfr_trainer_claude_v1';
+const SAVE_KEY = 'vfr_pattern_trainer_v1';
 
 export const SCREENS = { MAIN:'main', SETUP:'setup', BRIEFING:'briefing', FLIGHT:'flight', DEBRIEF:'debrief' };
 export const PHASES  = { CRUISE:'CRUISE', APPROACH:'APPROACH', DOWNWIND:'DOWNWIND', BASE:'BASE', FINAL:'FINAL', FLARE:'FLARE', LANDED:'LANDED' };
