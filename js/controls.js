@@ -16,11 +16,12 @@ export class Controls {
     this.rollInput  = 0;    // -1 = roll left, +1 = roll right
     this.throttle   = 0.55; // 0–1, persists
 
-    this.gearToggle = false;
-    this.flapsDown  = false;
-    this.flapsUp    = false;
-    this.pause      = false;
-    this.braking    = false;
+    this.gearToggle  = false;
+    this.flapsDown   = false;
+    this.flapsUp     = false;
+    this.pause       = false;
+    this.braking     = false;
+    this.guideToggle = false;
 
     window.addEventListener('keydown', e => {
       if (!this._keys.has(e.code)) this._justPressed.add(e.code);
@@ -48,7 +49,8 @@ export class Controls {
     this.gearToggle = this._justPressed.has('KeyG');
     this.flapsDown  = this._justPressed.has('KeyF');
     this.flapsUp    = this._justPressed.has('KeyV');
-    this.pause      = this._justPressed.has('Escape') || this._justPressed.has('KeyP');
+    this.pause       = this._justPressed.has('Escape') || this._justPressed.has('KeyP');
+    this.guideToggle = this._justPressed.has('KeyT');
 
     this._justPressed.clear();
   }

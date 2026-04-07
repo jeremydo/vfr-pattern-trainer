@@ -25,64 +25,10 @@
     <!-- Flight screen -->
     <div id="screen-flight" class="screen">
       <canvas id="game-canvas"></canvas>
+      <canvas id="pfd-canvas"></canvas>
 
-      <div id="hud" style="display:none">
-
-        <!-- Top bar -->
-        <div id="hud-top">
-          <span id="hud-phase" class="phase-badge">CRUISE</span>
-          <span id="hud-wind"  class="hud-info">CALM</span>
-          <span id="hud-dist"  class="hud-info">— nm</span>
-        </div>
-
-        <!-- Airspeed (left) -->
-        <div id="hud-left" class="hud-panel">
-          <div class="hud-label">KIAS</div>
-          <div id="hud-airspeed-box" class="hud-box"><span id="hud-airspeed">0</span></div>
-          <div id="hud-vref"          class="hud-small">Vref —</div>
-          <div id="hud-target-speed"  class="hud-small tgt"></div>
-        </div>
-
-        <!-- Altitude + VSI (right) -->
-        <div id="hud-right" class="hud-panel">
-          <div class="hud-label">ALT ft</div>
-          <div class="hud-box"><span id="hud-altitude">0</span></div>
-          <div id="hud-agl"      class="hud-small">— AGL</div>
-          <div id="hud-pat-alt"  class="hud-small">PAT —</div>
-          <div class="hud-label" style="margin-top:8px">VSI</div>
-          <div id="hud-vsi" class="hud-vsi">+0 fpm</div>
-        </div>
-
-        <!-- Bottom strip -->
-        <div id="hud-bottom">
-          <div class="hud-sys">
-            <div class="hud-label">HDG</div>
-            <div id="hud-heading" class="hud-sys-val">000°</div>
-          </div>
-          <div class="hud-sys">
-            <div class="hud-label">POWER</div>
-            <div id="hud-throttle-bar"><div id="hud-throttle-fill"></div></div>
-            <div id="hud-throttle-pct" class="hud-sys-val">55%</div>
-          </div>
-          <div class="hud-sys">
-            <div class="hud-label">FLAP</div>
-            <div id="hud-flaps" class="hud-sys-val">UP</div>
-          </div>
-          <div class="hud-sys">
-            <div class="hud-label">GEAR</div>
-            <div id="hud-gear" class="hud-indicator">—</div>
-          </div>
-        </div>
-
-        <!-- Warnings -->
-        <div id="hud-warnings"></div>
-
-        <!-- Guidance bar -->
-        <div id="hud-guidance-bar"><span id="hud-guidance"></span></div>
-
-        <!-- Stall flash -->
-        <div id="stall-flash">STALL</div>
-      </div>
+      <!-- Stall flash -->
+      <div id="stall-flash">STALL</div>
 
       <!-- Pause -->
       <div id="pause-overlay">

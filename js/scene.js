@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { headingVec, thresholdPos } from './data/airports.js';
 
 export class SceneManager {
   constructor(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     this.scene  = new THREE.Scene();
@@ -14,6 +15,7 @@ export class SceneManager {
     this._camLookTgt= new THREE.Vector3();
 
     this._clouds = [];
+    this._patternGuide = null;
 
     this._buildLighting();
     this._buildGround();
@@ -37,7 +39,7 @@ export class SceneManager {
   }
 
   _buildGround() {
-    // Canvas texture: green base with grid lines — no z-fighting
+    // Organic tile texture: irregular field patches, no grid
     const size = 512;
     const cvs  = document.createElement('canvas');
     cvs.width = cvs.height = size;
@@ -46,25 +48,32 @@ export class SceneManager {
     ctx.fillStyle = '#5C7A3C';
     ctx.fillRect(0, 0, size, size);
 
-    // Minor grid lines (every 1/8 tile)
-    ctx.strokeStyle = '#4A6A2A';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= size; i += size / 8) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, size); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(size, i); ctx.stroke();
-    }
-    // Major grid lines (every 1/2 tile)
-    ctx.strokeStyle = '#3D5C28';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= size; i += size / 2) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, size); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(size, i); ctx.stroke();
+    // Irregular farm / field patches
+    const patches = [
+      { x:  30, y:  20, w: 190, h: 150, c: '#4E7030' },
+      { x: 260, y:  15, w: 210, h: 130, c: '#6A8840' },
+      { x:  10, y: 260, w: 160, h: 220, c: '#527838' },
+      { x: 310, y: 210, w: 180, h: 200, c: '#4A7235' },
+      { x: 110, y: 160, w: 130, h: 110, c: '#C8B060' }, // crop
+      { x: 370, y: 340, w: 130, h: 150, c: '#D4B870' }, // crop
+      { x: 200, y: 340, w: 100, h: 140, c: '#7A9048' },
+    ];
+    patches.forEach(p => {
+      ctx.fillStyle = p.c;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+    });
+
+    // Subtle tonal variation dots
+    for (let i = 0; i < 600; i++) {
+      ctx.fillStyle = Math.random() > 0.5 ? '#496929' : '#6B9045';
+      ctx.beginPath();
+      ctx.arc(Math.random() * size, Math.random() * size, 1 + Math.random() * 4, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     const tex = new THREE.CanvasTexture(cvs);
-    // Each tile = 4000 ft; 350 tiles across 1,400,000 ft
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(350, 350);
+    tex.repeat.set(280, 280);
 
     this.groundMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1400000, 1400000),
@@ -72,6 +81,73 @@ export class SceneManager {
     );
     this.groundMesh.rotation.x = -Math.PI / 2;
     this.scene.add(this.groundMesh);
+
+    this._buildScenery();
+  }
+
+  _buildScenery() {
+    this._sceneryGroup = new THREE.Group();
+    this.scene.add(this._sceneryGroup);
+
+    const rng   = (a, b) => a + Math.random() * (b - a);
+    const place = (minR, maxR) => {
+      const a = Math.random() * Math.PI * 2;
+      const d = minR + Math.random() * (maxR - minR);
+      return { x: Math.cos(a) * d, z: Math.sin(a) * d };
+    };
+
+    // --- Trees ---
+    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5C3A1E });
+    const foliageMats = [0x2D6A2D, 0x357B35, 0x286228, 0x3E7A3E]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+
+    for (let i = 0; i < 220; i++) {
+      const { x, z } = place(2800, 50000);
+      const h = rng(25, 65);
+
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(2, 4, h * 0.45, 5),
+        trunkMat
+      );
+      trunk.position.set(x, h * 0.22, z);
+
+      const foliage = new THREE.Mesh(
+        new THREE.ConeGeometry(h * 0.32, h * 0.72, 6),
+        foliageMats[i % foliageMats.length]
+      );
+      foliage.position.set(x, h * 0.72, z);
+
+      this._sceneryGroup.add(trunk, foliage);
+    }
+
+    // --- Houses ---
+    const wallCols = [0xD4C4A8, 0xC8B898, 0xDDD0B0, 0xBFBFA8];
+    const roofCols = [0x8B3A2F, 0x9B4535, 0x7A3025, 0xA05040];
+
+    for (let i = 0; i < 30; i++) {
+      const { x: bx, z: bz } = place(3500, 42000);
+      const count = Math.floor(rng(1, 4));
+      for (let j = 0; j < count; j++) {
+        const ox = bx + rng(-250, 250);
+        const oz = bz + rng(-250, 250);
+        const w = rng(55, 110), d = rng(45, 85), h = rng(22, 42);
+
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshLambertMaterial({ color: wallCols[(i + j) % wallCols.length] })
+        );
+        body.position.set(ox, h / 2, oz);
+
+        const roof = new THREE.Mesh(
+          new THREE.CylinderGeometry(0, Math.max(w, d) * 0.62, h * 0.55, 4),
+          new THREE.MeshLambertMaterial({ color: roofCols[(i + j) % roofCols.length] })
+        );
+        roof.position.set(ox, h + h * 0.27, oz);
+        roof.rotation.y = Math.PI / 4;
+
+        this._sceneryGroup.add(body, roof);
+      }
+    }
   }
 
   _buildSky() {
@@ -91,6 +167,7 @@ export class SceneManager {
 
   setGroundLevel(elevation) {
     this.groundMesh.position.y = elevation;
+    if (this._sceneryGroup) this._sceneryGroup.position.y = elevation - 3;
   }
 
   buildClouds(scenario, airportElevation) {
@@ -161,6 +238,137 @@ export class SceneManager {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  // ── Pattern guide ─────────────────────────────────────────────
+  buildPatternGuide(airport, runway, activeEnd, patternAltMSL) {
+    if (this._patternGuide) {
+      this.scene.remove(this._patternGuide);
+      this._patternGuide = null;
+    }
+
+    const elev   = airport.elevation;
+    const patY   = patternAltMSL;
+    const patAGL = patternAltMSL - elev;
+    const landingHdg = parseInt(activeEnd.id) * 10;
+
+    const rwyVec  = headingVec(landingHdg);
+    const downDir = headingVec((landingHdg + 180) % 360);
+    const perpVec = activeEnd.pattern === 'L'
+      ? headingVec((landingHdg + 270) % 360)
+      : headingVec((landingHdg +  90) % 360);
+
+    const thr  = thresholdPos(runway, activeEnd.id, elev);
+    const dptX = thr.x + rwyVec.x * runway.length;
+    const dptZ = thr.z + rwyVec.z * runway.length;
+
+    // Geometry constants (feet)
+    const OFFSET    = 4500;
+    const PAST_THR  = 2500;
+    const FINAL_EXT = 7000;
+    const TURN_R    = 1400;  // turn radius at each corner
+
+    // Corner waypoints
+    const pDW    = new THREE.Vector3(dptX + perpVec.x * OFFSET, patY,
+                                     dptZ + perpVec.z * OFFSET);
+    const pBase  = new THREE.Vector3(thr.x + downDir.x * PAST_THR + perpVec.x * OFFSET, patY,
+                                     thr.z + downDir.z * PAST_THR + perpVec.z * OFFSET);
+    const pFinal = new THREE.Vector3(thr.x + downDir.x * PAST_THR, elev + patAGL * 0.55,
+                                     thr.z + downDir.z * PAST_THR);
+    const pOuter = new THREE.Vector3(thr.x - rwyVec.x * (PAST_THR + FINAL_EXT), patY,
+                                     thr.z - rwyVec.z * (PAST_THR + FINAL_EXT));
+    const pThr   = new THREE.Vector3(thr.x, elev + 50, thr.z);
+
+    // Leg direction unit vectors (horizontal only)
+    const dnVec = new THREE.Vector3(downDir.x, 0, downDir.z);
+    const bsVec = new THREE.Vector3(-perpVec.x, 0, -perpVec.z);
+    const fnVec = new THREE.Vector3(rwyVec.x, 0, rwyVec.z);
+
+    // Transition points TURN_R ft from each corner, on the two legs meeting there
+    const baseEnter  = pBase.clone().addScaledVector(dnVec, -TURN_R);
+    const baseExit   = pBase.clone().addScaledVector(bsVec,  TURN_R);
+    const finalEnter = pFinal.clone().addScaledVector(bsVec, -TURN_R);
+    const finalExit  = pFinal.clone().addScaledVector(fnVec,  TURN_R);
+
+    const group = new THREE.Group();
+
+    // Build a TubeGeometry from an array of Three.js curve objects
+    const addTubePath = (curves, color, opacity = 0.78, radius = 18) => {
+      const cp = new THREE.CurvePath();
+      for (const c of curves) cp.add(c);
+      const segs = Math.max(20, Math.ceil(cp.getLength() / 150));
+      const geom = new THREE.TubeGeometry(cp, segs, radius, 8, false);
+      const mat  = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+      group.add(new THREE.Mesh(geom, mat));
+      return cp;
+    };
+
+    // Direction arrows sampled along a CurvePath
+    const addCurveArrows = (cp, color, count = 2) => {
+      for (let i = 1; i <= count; i++) {
+        const t   = i / (count + 1);
+        const pos = cp.getPointAt(t);
+        const tan = cp.getTangentAt(t).normalize();
+        const mesh = new THREE.Mesh(
+          new THREE.ConeGeometry(28, 90, 6),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })
+        );
+        mesh.position.copy(pos);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+        group.add(mesh);
+      }
+    };
+
+    // Sphere node at a waypoint
+    const addNode = (p, color, r = 50) => {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 8, 6),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.88 })
+      );
+      mesh.position.copy(p);
+      group.add(mesh);
+    };
+
+    // Downwind leg — cyan straight
+    const dwPath = addTubePath([new THREE.LineCurve3(pDW, baseEnter)], 0x00E5FF);
+    addCurveArrows(dwPath, 0x00E5FF, 2);
+
+    // Downwind→base turn — yellow quadratic arc
+    addTubePath([new THREE.QuadraticBezierCurve3(baseEnter, pBase, baseExit)], 0xFFE000);
+
+    // Base leg — yellow straight (descends to pFinal altitude)
+    const basePath = addTubePath([new THREE.LineCurve3(baseExit, finalEnter)], 0xFFE000);
+    addCurveArrows(basePath, 0xFFE000, 1);
+
+    // Base→final turn — magenta quadratic arc
+    addTubePath([new THREE.QuadraticBezierCurve3(finalEnter, pFinal, finalExit)], 0xFF44AA);
+
+    // Final leg — magenta straight
+    const finPath = addTubePath([new THREE.LineCurve3(finalExit, pThr)], 0xFF44AA);
+    addCurveArrows(finPath, 0xFF44AA, 1);
+
+    // Extended final guide — white, dimmed
+    addTubePath([new THREE.LineCurve3(pOuter, finalEnter)], 0xFFFFFF, 0.28, 12);
+
+    // Waypoint nodes at corners
+    addNode(pDW,    0x00E5FF);
+    addNode(pBase,  0xFFE000);
+    addNode(pFinal, 0xFF44AA);
+    addNode(pThr,   0xFF3333, 35);
+
+    group.visible = false;
+    this._patternGuide = group;
+    this.scene.add(group);
+  }
+
+  togglePatternGuide() {
+    if (!this._patternGuide) return false;
+    this._patternGuide.visible = !this._patternGuide.visible;
+    return this._patternGuide.visible;
+  }
+
+  setPatternGuideVisible(visible) {
+    if (this._patternGuide) this._patternGuide.visible = visible;
   }
 
   render() { this.renderer.render(this.scene, this.camera); }

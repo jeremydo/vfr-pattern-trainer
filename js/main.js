@@ -22,10 +22,11 @@ const airport = new AirportRenderer(scene.scene);
 const checker = new PatternChecker();
 const hud     = new HUD();
 
-let ac          = null;   // Aircraft instance
-let paused      = false;
-let prevTime    = null;
-let landingWait = 0;
+let ac           = null;   // Aircraft instance
+let paused       = false;
+let prevTime     = null;
+let landingWait  = 0;
+let guideVisible = false;  // pattern guide on/off (persists across retries)
 
 // ---- Boot ----
 ui.renderMain();
@@ -56,10 +57,10 @@ function _startFlight() {
   scene.setSkyColor(sc.skyColor);
   scene.buildClouds(sc, apt.elevation);
 
-  // Starting position: 20nm from airport at chosen compass direction
+  // Starting position: chosen distance from airport at chosen compass direction
   const bearingRad = DIR_HDG[state.startDirection] * Math.PI / 180;
-  const startX = Math.sin(bearingRad) * 20 * NM;
-  const startZ = -Math.cos(bearingRad) * 20 * NM;
+  const startX = Math.sin(bearingRad) * state.startDistance * NM;
+  const startZ = -Math.cos(bearingRad) * state.startDistance * NM;
   const patAlt  = getPatternAlt(apt, acData.type === 'turbine');
   const startAlt= patAlt + 1500;
   const inbound = (DIR_HDG[state.startDirection] + 180) % 360;
@@ -70,6 +71,8 @@ function _startFlight() {
 
   scene.resize();
   scene.snapCamera(ac);
+  scene.buildPatternGuide(apt, state.selectedRunway, state.selectedEnd, patAlt);
+  scene.setPatternGuideVisible(guideVisible);
   state.startFlight();
   hud.show();
 
@@ -92,6 +95,10 @@ function _loop(ts) {
     document.getElementById('pause-overlay').style.display = paused ? 'flex' : 'none';
   }
 
+  if (ctrl.guideToggle) {
+    guideVisible = scene.togglePatternGuide();
+  }
+
   if (!paused && ac) {
     try { _tick(dt); } catch(e) { console.error('Tick error:', e); }
   }
@@ -111,7 +118,7 @@ function _tick(dt) {
   const { glidepath } = checker.update(ac, apt, rwy, end, sc);
   if (glidepath > 0) airport.updatePAPI(end.id, glidepath);
 
-  hud.update(ac, state, checker, sc);
+  hud.update(ac, state, checker, sc, guideVisible);
   state.phase = checker.phase;
 
   if (checker.phase === PHASES.LANDED) {

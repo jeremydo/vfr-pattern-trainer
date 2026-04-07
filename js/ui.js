@@ -32,6 +32,7 @@ export class UI {
             <span>G</span><span>Gear toggle</span>
             <span>B</span><span>Brakes</span>
             <span>P / Esc</span><span>Pause</span>
+            <span>T</span><span>Pattern guide</span>
           </div>
         </div>
       </div>`;
@@ -43,7 +44,8 @@ export class UI {
     const sel = { airport: s.selectedAirport || AIRPORTS[0],
                   aircraft: s.selectedAircraft || AIRCRAFT_LIST[0],
                   scenario: s.selectedScenario || SCENARIOS[0],
-                  dir: s.startDirection || 'N' };
+                  dir: s.startDirection || 'N',
+                  dist: s.startDistance || 5 };
 
     document.getElementById('screen-setup').innerHTML = `
       <div class="menu-panel wide">
@@ -62,9 +64,12 @@ export class UI {
             </select>
             <p id="sc-desc" class="sc-desc">${sel.scenario.description}</p>
 
-            <label class="section-label" style="margin-top:20px">Starting Direction (20 nm out)</label>
+            <label class="section-label" style="margin-top:20px">Starting Direction &amp; Distance</label>
             <div class="compass-wrap" id="compass-btns">
               ${DIRS.map(d => `<button class="compass-btn${d===sel.dir?' active':''}" data-dir="${d}">${d}</button>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px" id="dist-btns">
+              ${[5,10,20].map(nm => `<button class="compass-btn${nm===sel.dist?' active':''}" style="flex:1" data-dist="${nm}">${nm} nm</button>`).join('')}
             </div>
           </div>
 
@@ -92,7 +97,13 @@ export class UI {
     };
     document.getElementById('compass-btns').querySelectorAll('.compass-btn').forEach(btn => {
       btn.onclick = () => {
-        document.querySelectorAll('.compass-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#compass-btns .compass-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      };
+    });
+    document.getElementById('dist-btns').querySelectorAll('.compass-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('#dist-btns .compass-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
       };
     });
@@ -112,7 +123,8 @@ export class UI {
     s.selectedAirport  = AIRPORTS.find(a => a.id === document.getElementById('sel-airport').value);
     s.selectedScenario = SCENARIOS.find(sc => sc.id === document.getElementById('sel-scenario').value);
     s.selectedAircraft = AIRCRAFT_LIST.find(a => a.id === document.querySelector('input[name="ac"]:checked')?.value) || AIRCRAFT_LIST[0];
-    s.startDirection   = document.querySelector('.compass-btn.active')?.dataset.dir || 'N';
+    s.startDirection   = document.querySelector('#compass-btns .compass-btn.active')?.dataset.dir || 'N';
+    s.startDistance    = parseInt(document.querySelector('#dist-btns .compass-btn.active')?.dataset.dist || '5');
     const { runway, end } = selectActiveEnd(s.selectedAirport, s.selectedScenario.windFrom, s.selectedScenario.windSpeed);
     s.selectedRunway = runway;
     s.selectedEnd    = end;
