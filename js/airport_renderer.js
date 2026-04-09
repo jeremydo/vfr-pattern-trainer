@@ -3,11 +3,11 @@ import { headingVec, thresholdPos } from './data/airports.js';
 
 const DEG = Math.PI / 180;
 
-// Natural aspect ratios (width/height) from extracted FAA spec PNGs
+// Natural aspect ratios (width/height) from extracted FAA spec PNGs (tight-cropped, no annotations)
 const GLYPH_AR = {
-  '0':136/208, '1':100/180, '2':139/184, '3':125/185,
-  '4':122/197, '5':125/187, '6':134/208, '7':143/184,
-  '8':143/184, '9':143/186, 'L':84/203,  'R':178/201, 'C':138/190
+  '0':144/222, '1':144/189, '2':156/192, '3':160/192,
+  '4':123/209, '5':124/194, '6':149/224, '7':159/191,
+  '8':160/191, '9':155/191, 'L':123/212, 'R':128/201, 'C':120/192
 };
 
 export class AirportRenderer {
