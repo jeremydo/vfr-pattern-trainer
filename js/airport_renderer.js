@@ -22,8 +22,9 @@ export class AirportRenderer {
     this._glyphTex = {};
     for (const ch of Object.keys(GLYPH_AR)) {
       const tex = loader.load(`textures/glyphs/${ch}.png`);
-      tex.generateMipmaps = true;
-      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.generateMipmaps = false;
+      tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = THREE.NearestFilter;
       this._glyphTex[ch] = tex;
     }
   }
