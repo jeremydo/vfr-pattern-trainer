@@ -45,7 +45,7 @@ export class UI {
                   aircraft: s.selectedAircraft || AIRCRAFT_LIST[0],
                   scenario: s.selectedScenario || SCENARIOS[0],
                   dir: s.startDirection || 'N',
-                  dist: s.startDistance || 5 };
+                  dist: s.startDistance || 2 };
 
     document.getElementById('screen-setup').innerHTML = `
       <div class="menu-panel wide">
@@ -69,7 +69,7 @@ export class UI {
               ${DIRS.map(d => `<button class="compass-btn${d===sel.dir?' active':''}" data-dir="${d}">${d}</button>`).join('')}
             </div>
             <div style="display:flex;gap:8px;margin-top:8px" id="dist-btns">
-              ${[5,10,20].map(nm => `<button class="compass-btn${nm===sel.dist?' active':''}" style="flex:1" data-dist="${nm}">${nm} nm</button>`).join('')}
+              ${[2,5,10,20].map(nm => `<button class="compass-btn${nm===sel.dist?' active':''}" style="flex:1" data-dist="${nm}">${nm} nm</button>`).join('')}
             </div>
           </div>
 
@@ -124,7 +124,7 @@ export class UI {
     s.selectedScenario = SCENARIOS.find(sc => sc.id === document.getElementById('sel-scenario').value);
     s.selectedAircraft = AIRCRAFT_LIST.find(a => a.id === document.querySelector('input[name="ac"]:checked')?.value) || AIRCRAFT_LIST[0];
     s.startDirection   = document.querySelector('#compass-btns .compass-btn.active')?.dataset.dir || 'N';
-    s.startDistance    = parseInt(document.querySelector('#dist-btns .compass-btn.active')?.dataset.dist || '5');
+    s.startDistance    = parseInt(document.querySelector('#dist-btns .compass-btn.active')?.dataset.dist || '2');
     const { runway, end } = selectActiveEnd(s.selectedAirport, s.selectedScenario.windFrom, s.selectedScenario.windSpeed);
     s.selectedRunway = runway;
     s.selectedEnd    = end;
