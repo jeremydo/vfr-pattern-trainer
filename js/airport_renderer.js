@@ -39,7 +39,7 @@ export class AirportRenderer {
     // z-fighting with the ground plane without pushing it above the runway.
     const apron = new THREE.Mesh(
       new THREE.PlaneGeometry(2200, 2200),
-      new THREE.MeshLambertMaterial({ color: 0x555555 })
+      new THREE.MeshLambertMaterial({ color: 0x909090 })
     );
     apron.rotation.x = -Math.PI / 2;
     apron.position.set(0, elev + 1, 0);
