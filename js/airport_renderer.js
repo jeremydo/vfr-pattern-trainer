@@ -3,12 +3,29 @@ import { headingVec, thresholdPos } from './data/airports.js';
 
 const DEG = Math.PI / 180;
 
+// Natural aspect ratios (width/height) from extracted FAA spec PNGs
+const GLYPH_AR = {
+  '0':136/208, '1':100/180, '2':139/184, '3':125/185,
+  '4':122/197, '5':125/187, '6':134/208, '7':143/184,
+  '8':143/184, '9':143/186, 'L':84/203,  'R':178/201, 'C':138/190
+};
+
 export class AirportRenderer {
   constructor(scene) {
     this.scene  = scene;
     this._group = new THREE.Group();
     scene.add(this._group);
     this._papiLights = [];
+
+    // Preload glyph textures
+    const loader = new THREE.TextureLoader();
+    this._glyphTex = {};
+    for (const ch of Object.keys(GLYPH_AR)) {
+      const tex = loader.load(`textures/glyphs/${ch}.png`);
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      this._glyphTex[ch] = tex;
+    }
   }
 
   build(airport) {
@@ -180,62 +197,56 @@ export class AirportRenderer {
 
   _buildRunwayNumber(rwy, end, elev) {
     const landingHdg = this._endHdg(rwy, end);
-    const tv  = headingVec((landingHdg + 180) % 360);
-    const hv2 = headingVec(landingHdg);
+    const tv  = headingVec((landingHdg + 180) % 360);  // toward threshold
+    const hv2 = headingVec(landingHdg);                // inbound (toward runway)
+    const rv  = headingVec((landingHdg + 90) % 360);   // pilot's right on approach
     const half = rwy.length / 2;
 
     const match  = end.id.match(/^(\d+)([LRC]?)$/i);
     const digits = (match ? match[1] : end.id).padStart(2, '0');
     const desig  = match ? match[2].toUpperCase() : '';
+    const elements = desig ? [digits[0], digits[1], desig] : [digits[0], digits[1]];
 
-    // Single row, normal reading order (left = pilot's left on approach).
-    const elements = desig
-      ? [digits[0], digits[1], desig]
-      : [digits[0], digits[1]];
-    const n = elements.length;
+    // Character height along runway; width per char derived from natural aspect ratio
+    const charH = Math.min(rwy.width * 0.75, 90);
+    const gap   = charH * 0.06;
+    const widths = elements.map(ch => charH * (GLYPH_AR[ch] ?? 0.6));
+    const totalW = widths.reduce((a, b) => a + b, 0) + gap * (elements.length - 1);
 
-    // Canvas aspect matches the 2:1 world ratio so there is no per-pixel stretching.
-    // U (canvas width) = across runway; V (canvas height) = along runway.
-    const cellPx = 384;
-    const cvs    = document.createElement('canvas');
-    cvs.width    = cellPx * n;   // wide: n chars side by side
-    cvs.height   = cellPx * 2;   // 2:1 — matches world ratio exactly, no texture stretch
-    const ctx    = cvs.getContext('2d');
-    ctx.clearRect(0, 0, cvs.width, cvs.height);
-    ctx.font         = `900 ${Math.round(cellPx * 1.6)}px 'Arial Black', Arial, sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle    = '#FFFFFF';
-    elements.forEach((ch, i) => ctx.fillText(ch, cellPx * (i + 0.5), cellPx));
-
-    const tex = new THREE.CanvasTexture(cvs);
-    tex.flipY           = true;
-    tex.generateMipmaps = true;
-    tex.minFilter       = THREE.LinearMipmapLinearFilter;
-
-    const charW = Math.min(rwy.width * 0.275, 33);  // ft per char, across runway
-    const charH = charW * 2;                        // ft along runway (2:1 ratio)
-
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(charW * n, charH),
-      new THREE.MeshBasicMaterial({
-        map: tex, transparent: true, depthWrite: false,
-        alphaTest: 0.05, side: THREE.DoubleSide
-      })
-    );
-
-    mesh.rotation.order = 'YXZ';
-    mesh.rotation.y     = -landingHdg * DEG;
-    mesh.rotation.x     = -Math.PI / 2;
-
-    // Center 150 ft inbound from threshold (clear of the piano-key stripes)
+    // Block center: 150 ft inbound from threshold
     const fromThresh = 150 + charH / 2;
-    mesh.position.set(
-      rwy.offsetX + tv.x * half + hv2.x * fromThresh,
-      elev + 2.3,
-      rwy.offsetZ + tv.z * half + hv2.z * fromThresh
-    );
-    this._group.add(mesh);
+    const cx = rwy.offsetX + tv.x * half + hv2.x * fromThresh;
+    const cz = rwy.offsetZ + tv.z * half + hv2.z * fromThresh;
+
+    let curOffset = -totalW / 2;
+    for (let i = 0; i < elements.length; i++) {
+      const ch = elements[i];
+      const w  = widths[i];
+      const offset = curOffset + w / 2;
+      curOffset += w + gap;
+
+      const tex = this._glyphTex[ch];
+      if (!tex) continue;
+
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, charH),
+        new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthWrite: false,
+          alphaTest: 0.05, side: THREE.DoubleSide
+        })
+      );
+
+      mesh.rotation.order = 'YXZ';
+      mesh.rotation.y     = -landingHdg * DEG;
+      mesh.rotation.x     = -Math.PI / 2;
+
+      mesh.position.set(
+        cx + rv.x * offset,
+        elev + 2.3,
+        cz + rv.z * offset
+      );
+      this._group.add(mesh);
+    }
   }
 
   // Update PAPI colors based on current glidepath angle
