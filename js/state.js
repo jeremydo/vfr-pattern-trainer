@@ -12,7 +12,7 @@ export class AppState {
     this.selectedAircraft = null;
     this.selectedScenario = null;
     this.startDirection   = 'N';
-    this.startDistance    = 5;
+    this.startDistance    = 2;
     this.phase            = PHASES.CRUISE;
     this.warnings         = [];
     this.guidance         = '';
