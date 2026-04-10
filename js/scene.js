@@ -174,9 +174,10 @@ export class SceneManager {
   }
 
   buildTerrain(airport, data) {
-    // Hide the flat ground — terrain covers the entire visible area (±50 miles)
-    // and the two meshes at the same Y cause Z-fighting flicker.
-    this.groundMesh.visible = false;
+    // Drop the flat ground 2000 ft below airport elevation so it can never
+    // Z-fight with the terrain (which is clamped to airport.elevation at its
+    // lowest near the airport).  It remains as a distant horizon fallback.
+    this.groundMesh.position.y = airport.elevation - 2000;
     this._terrain.build(airport, data);
   }
 
