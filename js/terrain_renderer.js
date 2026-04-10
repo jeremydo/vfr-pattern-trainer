@@ -137,11 +137,8 @@ export class TerrainRenderer {
     geo.computeVertexNormals();
 
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
-      vertexColors:        true,
-      flatShading:         true,
-      polygonOffset:       true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits:  -1,
+      vertexColors: true,
+      flatShading:  true,
     })));
 
     // ── Water polygons ───────────────────────────────────────────────────────
@@ -150,7 +147,7 @@ export class TerrainRenderer {
       if (poly.coords.length < 3) continue;
       const cx    = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
       const cz    = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
-      const wElev = sampleElev(cx, cz, elevations, grid, radiusFt) + 3;
+      const wElev = sampleElev(cx, cz, elevations, grid, radiusFt) + 20;
 
       const shape = new THREE.Shape();
       shape.moveTo(poly.coords[0][0], -poly.coords[0][1]);
@@ -170,7 +167,7 @@ export class TerrainRenderer {
     for (const river of rivers) {
       if (river.coords.length < 2) continue;
       const pts = river.coords.map(([x, z]) =>
-        new THREE.Vector3(x, sampleElev(x, z, elevations, grid, radiusFt) + 3, z)
+        new THREE.Vector3(x, sampleElev(x, z, elevations, grid, radiusFt) + 12, z)
       );
       try {
         const curve = new THREE.CatmullRomCurve3(pts);
