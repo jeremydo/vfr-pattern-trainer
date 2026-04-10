@@ -20,6 +20,7 @@ const AIRPORTS = [
   { id: 'KFRG', lat: 40.7288, lon:  -73.4134 },
   { id: 'KHEF', lat: 38.7214, lon:  -77.5150 },
   { id: 'KBJC', lat: 39.9088, lon: -105.1172 },
+  { id: 'KEUG', lat: 44.1246, lon: -123.2119 },
   { id: 'KGYI', lat: 33.7142, lon:  -96.6736 },
 ];
 
@@ -291,8 +292,15 @@ async function processAirport(apt) {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  // Optional: pass an ICAO code as CLI argument to process a single airport
+  // e.g.  node scripts/fetch_terrain.js KEUG
+  const filter = process.argv[2]?.toUpperCase();
+  const queue  = filter ? AIRPORTS.filter(a => a.id === filter) : AIRPORTS;
+  if (filter && queue.length === 0) {
+    console.error(`Airport ${filter} not found in list.`); process.exit(1);
+  }
   let ok = 0, fail = 0;
-  for (const apt of AIRPORTS) {
+  for (const apt of queue) {
     try   { await processAirport(apt); ok++;   }
     catch (e) { console.error(`  ✗ ${apt.id}: ${e.message}`); fail++; }
   }

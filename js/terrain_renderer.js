@@ -14,6 +14,7 @@ const AIRPORT_BIOMES = {
   KSNA: 'arid',          KVNY: 'arid',          KSQL: 'arid',
   KFXE: 'tropical',
   KRNT: 'temperate',     KFRG: 'temperate',     KHEF: 'temperate',
+  KEUG: 'temperate',
   KGYI: 'plains',
 };
 

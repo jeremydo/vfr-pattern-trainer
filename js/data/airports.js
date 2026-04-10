@@ -153,6 +153,23 @@ export const AIRPORTS = [
     ]
   },
   {
+    id: 'KEUG', name: 'Mahlon Sweet Field', city: 'Eugene, OR',
+    lat: 44.1246, lon: -123.2119,
+    elevation: 373, patternAGL: 1000, turbinePatternAGL: 1500,
+    runways: [
+      {
+        id: '16R/34L', heading: 159, length: 8009, width: 150,
+        offsetX: -400, offsetZ: 0,
+        ends: [{ id: '16R', pattern: 'L' }, { id: '34L', pattern: 'R' }]
+      },
+      {
+        id: '16L/34R', heading: 159, length: 6000, width: 150,
+        offsetX: 400, offsetZ: 0,
+        ends: [{ id: '16L', pattern: 'R' }, { id: '34R', pattern: 'L' }]
+      }
+    ]
+  },
+  {
     id: 'KGYI', name: 'North Texas Regional Airport', city: 'Sherman, TX',
     lat: 33.7142, lon: -96.6736,
     elevation: 749, patternAGL: 1000, turbinePatternAGL: 1500,
