@@ -17,12 +17,25 @@ const AIRPORT_BIOMES = {
   KGYI: 'plains',
 };
 
+// Flat zone around airport: terrain is forced to airport elevation within FLAT_INNER,
+// then blends smoothly back to real terrain between FLAT_INNER and FLAT_OUTER.
+const FLAT_INNER_FT = 12000;  // ~2.3 miles — dead flat, runway/apron visible
+const FLAT_OUTER_FT = 35000;  // ~6.6 miles — blend complete, real terrain starts
+
 const _col = new THREE.Color();
 
-function elevColor(elevFt, airportElevFt, palette) {
-  if (elevFt < 0)     return _col.setHex(0x1E6E8E).clone();
-  if (elevFt > 11500) return _col.setHex(0xEEEEE8).clone();
-  const rel = elevFt - airportElevFt;
+// Deterministic hash 0..1 from grid indices — gives each vertex a stable random value
+function hash(ix, iy) {
+  const s = Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+function elevColor(colorElevFt, airportElevFt, palette) {
+  if (colorElevFt < 0)     return _col.setHex(0x1E6E8E).clone();
+  if (colorElevFt > 11500) return _col.setHex(0xEEEEE8).clone();
+  const rel = colorElevFt - airportElevFt;
   let hex;
   if      (rel < -1500) hex = palette[0];
   else if (rel <   500) hex = palette[1];
@@ -53,17 +66,42 @@ export class TerrainRenderer {
     const segs  = grid - 1;
     const biome = BIOMES[AIRPORT_BIOMES[airport.id] || 'temperate'];
 
-    // Shift all elevations so the terrain centre matches airport.elevation exactly,
-    // ensuring the apron/runway geometry sits flush with the terrain surface.
-    const centerIdx  = Math.floor(grid / 2) * grid + Math.floor(grid / 2);
-    const correction = airport.elevation - (data.elevations[centerIdx] ?? airport.elevation);
+    // Use average of the 4 centre vertices for a more stable elevation correction
+    const ci = Math.floor(segs / 2);  // 31 for grid=64
+    const avg4 = (
+      data.elevations[ ci      * grid +  ci     ] +
+      data.elevations[ ci      * grid + (ci + 1)] +
+      data.elevations[(ci + 1) * grid +  ci     ] +
+      data.elevations[(ci + 1) * grid + (ci + 1)]
+    ) / 4;
+    const correction = airport.elevation - avg4;
+
+    // Working copy with correction applied
     const elevations = data.elevations.map(e => e + correction);
+
+    // ── Flatten airport vicinity ─────────────────────────────────────────────
+    // Prevents terrain from rising above the runway/apron geometry.
+    for (let iy = 0; iy < grid; iy++) {
+      for (let ix = 0; ix < grid; ix++) {
+        // World position of this vertex (after PlaneGeometry + rotateX(-PI/2))
+        const wx = radiusFt * (-1 + 2 * ix / segs);
+        const wz = radiusFt * (-1 + 2 * iy / segs);
+        const dist = Math.sqrt(wx * wx + wz * wz);
+
+        const vi = iy * grid + ix;
+        if (dist < FLAT_INNER_FT) {
+          elevations[vi] = airport.elevation;
+        } else if (dist < FLAT_OUTER_FT) {
+          const t = (dist - FLAT_INNER_FT) / (FLAT_OUTER_FT - FLAT_INNER_FT);
+          const s = smoothstep(t);
+          elevations[vi] = airport.elevation * (1 - s) + elevations[vi] * s;
+        }
+      }
+    }
 
     const group = new THREE.Group();
 
     // ── Heightmap mesh ───────────────────────────────────────────────────────
-    // PlaneGeometry in XY, rotated to XZ.  Vertex index = iy*grid + ix,
-    // where iy=0 is north (smallest world-Z) and ix=0 is west.
     const geo = new THREE.PlaneGeometry(side, side, segs, segs);
     geo.rotateX(-Math.PI / 2);
 
@@ -75,10 +113,22 @@ export class TerrainRenderer {
         const vi   = iy * grid + ix;
         const elev = elevations[vi] ?? airport.elevation;
         pos.setY(vi, elev);
-        const c = elevColor(elev, airport.elevation, biome);
-        colBuf[vi * 3]     = c.r;
-        colBuf[vi * 3 + 1] = c.g;
-        colBuf[vi * 3 + 2] = c.b;
+
+        // Noise proportional to how far above airport level this vertex is.
+        // Jitter the elevation used for colour lookup so the colour bands have
+        // ragged, natural edges — this makes individual flat-shaded faces visible
+        // and gives a sense of the terrain's undulations.
+        const aboveAirport = Math.max(0, elev - airport.elevation);
+        const noiseRange   = Math.min(600, aboveAirport * 0.12); // up to ±600 ft jitter in peaks
+        const colorElev    = elev + (hash(ix, iy) - 0.5) * 2 * noiseRange;
+
+        const c = elevColor(colorElev, airport.elevation, biome);
+
+        // Additional brightness scatter: ±10% brightness in mountains
+        const brightness = 1 + (hash(ix + 99, iy + 37) - 0.5) * 0.2 * Math.min(1, aboveAirport / 3000);
+        colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * brightness));
+        colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * brightness));
+        colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * brightness));
       }
     }
     pos.needsUpdate = true;
@@ -88,7 +138,7 @@ export class TerrainRenderer {
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       vertexColors:        true,
       flatShading:         true,
-      polygonOffset:       true,   // sit above the flat background ground
+      polygonOffset:       true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits:  -1,
     })));
@@ -97,13 +147,10 @@ export class TerrainRenderer {
     const waterMat = new THREE.MeshLambertMaterial({ color: 0x3B7CBF, side: THREE.DoubleSide });
     for (const poly of water) {
       if (poly.coords.length < 3) continue;
-      // Elevation at polygon centroid
-      const cx     = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
-      const cz     = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
-      const wElev  = sampleElev(cx, cz, elevations, grid, radiusFt) + 3;
+      const cx    = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
+      const cz    = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
+      const wElev = sampleElev(cx, cz, elevations, grid, radiusFt) + 3;
 
-      // Shape is in XY; after rotation.x = -PI/2, shape-X → world-X, shape-Y → world -Z
-      // So for world point (x, z): shape = (x, -z)
       const shape = new THREE.Shape();
       shape.moveTo(poly.coords[0][0], -poly.coords[0][1]);
       for (let k = 1; k < poly.coords.length; k++) {
@@ -127,27 +174,20 @@ export class TerrainRenderer {
       try {
         const curve = new THREE.CatmullRomCurve3(pts);
         const rGeo  = new THREE.TubeGeometry(
-          curve,
-          Math.max(8, pts.length * 2),
-          (river.widthFt || 600) / 2,
-          3,    // 3-sided tube = low-poly look
-          false
+          curve, Math.max(8, pts.length * 2), (river.widthFt || 600) / 2, 3, false
         );
         group.add(new THREE.Mesh(rGeo, riverMat));
       } catch (_) {}
     }
 
     // ── Towns ─────────────────────────────────────────────────────────────────
-    const townMat   = new THREE.MeshLambertMaterial({ color: 0xB0B0A8 });
-    const footprints = [3000, 7000, 15000]; // ft, by size 1/2/3
+    const townMat    = new THREE.MeshLambertMaterial({ color: 0xB0B0A8 });
+    const footprints = [3000, 7000, 15000];
     for (const town of towns) {
       const fp   = footprints[Math.min(town.size - 1, 2)];
       const h    = fp * 0.012 + 20;
       const y    = sampleElev(town.x, town.z, elevations, grid, radiusFt);
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(fp, h, fp),
-        townMat
-      );
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(fp, h, fp), townMat);
       mesh.position.set(town.x, y + h / 2, town.z);
       group.add(mesh);
     }
