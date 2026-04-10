@@ -1,0 +1,10 @@
+{
+  "name": "vfr-trainer-claude",
+  "private": true,
+  "scripts": {
+    "fetch-terrain": "node scripts/fetch_terrain.js"
+  },
+  "devDependencies": {
+    "pngjs": "^6.0.0"
+  }
+}

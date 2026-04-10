@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { headingVec, thresholdPos } from './data/airports.js';
+import { TerrainRenderer } from './terrain_renderer.js';
 
 export class SceneManager {
   constructor(canvas) {
@@ -16,6 +17,8 @@ export class SceneManager {
 
     this._clouds = [];
     this._patternGuide = null;
+
+    this._terrain = new TerrainRenderer(this.scene);
 
     this._buildLighting();
     this._buildGround();
@@ -170,6 +173,10 @@ export class SceneManager {
     if (this._sceneryGroup) this._sceneryGroup.position.y = elevation - 3;
   }
 
+  buildTerrain(airport, data) {
+    this._terrain.build(airport, data);
+  }
+
   buildClouds(scenario, airportElevation) {
     this._clouds.forEach(c => this.scene.remove(c));
     this._clouds = [];
@@ -262,11 +269,10 @@ export class SceneManager {
     const dptX = thr.x + rwyVec.x * runway.length;
     const dptZ = thr.z + rwyVec.z * runway.length;
 
-    // Geometry constants (feet)
     const OFFSET    = 4500;
     const PAST_THR  = 2500;
     const FINAL_EXT = 7000;
-    const TURN_R    = 1400;  // turn radius at each corner
+    const TURN_R    = 1500;   // turn radius at each corner (ft)
 
     // Corner waypoints
     const pDW    = new THREE.Vector3(dptX + perpVec.x * OFFSET, patY,
@@ -279,78 +285,112 @@ export class SceneManager {
                                      thr.z - rwyVec.z * (PAST_THR + FINAL_EXT));
     const pThr   = new THREE.Vector3(thr.x, elev + 50, thr.z);
 
-    // Leg direction unit vectors (horizontal only)
+    // Leg direction unit vectors (horizontal)
     const dnVec = new THREE.Vector3(downDir.x, 0, downDir.z);
     const bsVec = new THREE.Vector3(-perpVec.x, 0, -perpVec.z);
     const fnVec = new THREE.Vector3(rwyVec.x, 0, rwyVec.z);
 
-    // Transition points TURN_R ft from each corner, on the two legs meeting there
-    const baseEnter  = pBase.clone().addScaledVector(dnVec, -TURN_R);
-    const baseExit   = pBase.clone().addScaledVector(bsVec,  TURN_R);
-    const finalEnter = pFinal.clone().addScaledVector(bsVec, -TURN_R);
-    const finalExit  = pFinal.clone().addScaledVector(fnVec,  TURN_R);
+    // Generate N+1 points along the true circular arc of a 90° turn.
+    // Arc centre for perpendicular inDir/outDir: corner + (outDir − inDir) * R
+    const circArc = (corner, inDir, outDir, R, N = 14) => {
+      const cx = corner.x + (outDir.x - inDir.x) * R;
+      const cz = corner.z + (outDir.z - inDir.z) * R;
+      const sa = Math.atan2(-outDir.z, -outDir.x);
+      const ea = Math.atan2( inDir.z,   inDir.x);
+      let da = ea - sa;
+      if (da >  Math.PI) da -= 2 * Math.PI;
+      if (da < -Math.PI) da += 2 * Math.PI;
+      return Array.from({ length: N + 1 }, (_, i) => {
+        const a = sa + da * (i / N);
+        return new THREE.Vector3(cx + Math.cos(a) * R, corner.y, cz + Math.sin(a) * R);
+      });
+    };
+
+    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R);
+    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R);
 
     const group = new THREE.Group();
 
-    // Build a TubeGeometry from an array of Three.js curve objects
-    const addTubePath = (curves, color, opacity = 0.78, radius = 18) => {
-      const cp = new THREE.CurvePath();
-      for (const c of curves) cp.add(c);
-      const segs = Math.max(20, Math.ceil(cp.getLength() / 150));
-      const geom = new THREE.TubeGeometry(cp, segs, radius, 8, false);
-      const mat  = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
-      group.add(new THREE.Mesh(geom, mat));
-      return cp;
+    // CatmullRomCurve3 tube — passes smoothly through all pts
+    const makeTube = (pts, color, opacity = 0.78, r = 18) => {
+      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+      const segs  = Math.max(40, pts.length * 8);
+      group.add(new THREE.Mesh(
+        new THREE.TubeGeometry(curve, segs, r, 8, false),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity })
+      ));
+      return curve;
     };
 
-    // Direction arrows sampled along a CurvePath
-    const addCurveArrows = (cp, color, count = 2) => {
+    // Direction arrows sampled from a CatmullRomCurve3
+    const addArrows = (curve, color, count = 2) => {
       for (let i = 1; i <= count; i++) {
         const t   = i / (count + 1);
-        const pos = cp.getPointAt(t);
-        const tan = cp.getTangentAt(t).normalize();
-        const mesh = new THREE.Mesh(
+        const pos = curve.getPointAt(t);
+        const tan = curve.getTangentAt(t).normalize();
+        const m   = new THREE.Mesh(
           new THREE.ConeGeometry(28, 90, 6),
           new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })
         );
-        mesh.position.copy(pos);
-        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
-        group.add(mesh);
+        m.position.copy(pos);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+        group.add(m);
       }
     };
 
-    // Sphere node at a waypoint
     const addNode = (p, color, r = 50) => {
-      const mesh = new THREE.Mesh(
+      const m = new THREE.Mesh(
         new THREE.SphereGeometry(r, 8, 6),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.88 })
       );
-      mesh.position.copy(p);
-      group.add(mesh);
+      m.position.copy(p);
+      group.add(m);
     };
 
-    // Downwind leg — cyan straight
-    const dwPath = addTubePath([new THREE.LineCurve3(pDW, baseEnter)], 0x00E5FF);
-    addCurveArrows(dwPath, 0x00E5FF, 2);
+    // Linearly interpolate two Vector3s
+    const lerp3 = (a, b, t) => new THREE.Vector3(
+      a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t
+    );
 
-    // Downwind→base turn — yellow quadratic arc
-    addTubePath([new THREE.QuadraticBezierCurve3(baseEnter, pBase, baseExit)], 0xFFE000);
+    // Downwind (cyan): straight to start of base arc, then the arc itself.
+    // Extra collinear intermediate points ensure the straight section stays straight.
+    const dwCurve = makeTube([
+      pDW,
+      lerp3(pDW, baseArc[0], 1 / 3),
+      lerp3(pDW, baseArc[0], 2 / 3),
+      ...baseArc
+    ], 0x00E5FF);
+    addArrows(dwCurve, 0x00E5FF, 2);
 
-    // Base leg — yellow straight (descends to pFinal altitude)
-    const basePath = addTubePath([new THREE.LineCurve3(baseExit, finalEnter)], 0xFFE000);
-    addCurveArrows(basePath, 0xFFE000, 1);
+    // Base (yellow): out of base arc, straight to start of final arc, then that arc.
+    const baseEnd = baseArc[baseArc.length - 1];
+    const baseCurve = makeTube([
+      ...baseArc,
+      lerp3(baseEnd, finalArc[0], 1 / 3),
+      lerp3(baseEnd, finalArc[0], 2 / 3),
+      ...finalArc
+    ], 0xFFE000);
+    addArrows(baseCurve, 0xFFE000, 1);
 
-    // Base→final turn — magenta quadratic arc
-    addTubePath([new THREE.QuadraticBezierCurve3(finalEnter, pFinal, finalExit)], 0xFF44AA);
+    // Final (magenta): out of final arc, straight to threshold.
+    const finEnd = finalArc[finalArc.length - 1];
+    const finCurve = makeTube([
+      ...finalArc,
+      lerp3(finEnd, pThr, 1 / 3),
+      lerp3(finEnd, pThr, 2 / 3),
+      pThr
+    ], 0xFF44AA);
+    addArrows(finCurve, 0xFF44AA, 1);
 
-    // Final leg — magenta straight
-    const finPath = addTubePath([new THREE.LineCurve3(finalExit, pThr)], 0xFF44AA);
-    addCurveArrows(finPath, 0xFF44AA, 1);
+    // Extended final guide (white, dimmed) — plain straight tube
+    const extPath = new THREE.CurvePath();
+    extPath.add(new THREE.LineCurve3(pOuter, finalArc[0]));
+    group.add(new THREE.Mesh(
+      new THREE.TubeGeometry(extPath, 20, 12, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.28 })
+    ));
 
-    // Extended final guide — white, dimmed
-    addTubePath([new THREE.LineCurve3(pOuter, finalEnter)], 0xFFFFFF, 0.28, 12);
-
-    // Waypoint nodes at corners
+    // Waypoint nodes
     addNode(pDW,    0x00E5FF);
     addNode(pBase,  0xFFE000);
     addNode(pFinal, 0xFF44AA);
