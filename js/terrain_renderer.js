@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 
 // Elevation colour palettes per biome: [deep_valley, base, hills, high, peaks/snow]
+// Palettes: [deep_valley, base/plains, foothills, high_terrain, peaks/snow]
 const BIOMES = {
-  arid_mountain: [0x8B7B5B, 0xAA9070, 0x968060, 0x7A6B58, 0xDDD8D0],
-  arid:          [0xB0A070, 0xC4AD7A, 0xA89060, 0x8B7850, 0xCEC8B8],
+  // Colorado Front Range: green irrigated plains → tan foothills → brown rock → snow
+  arid_mountain: [0x5A7840, 0x788F50, 0xA09268, 0x7A6B58, 0xDDD8D0],
+  // SoCal/desert: tan scrub at all elevations, greener in valleys
+  arid:          [0x8A9060, 0xB8A878, 0xA89060, 0x8B7850, 0xCEC8B8],
   temperate:     [0x4A6B3A, 0x5C7A3C, 0x78896A, 0x8B7858, 0xDDD8D0],
   tropical:      [0x3A7040, 0x4A8040, 0x6A9060, 0x7A8060, 0xC8C0B0],
   plains:        [0x7A8A50, 0x8B9B60, 0x8B8B58, 0x8B7860, 0xC0B8A8],
