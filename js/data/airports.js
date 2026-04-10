@@ -6,6 +6,7 @@
 export const AIRPORTS = [
   {
     id: 'KAPA', name: 'Centennial Airport', city: 'Englewood, CO',
+    lat: 39.5702, lon: -104.8492,
     elevation: 5885, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -22,6 +23,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KSNA', name: 'John Wayne Airport', city: 'Santa Ana, CA',
+    lat: 33.6757, lon: -117.8682,
     elevation: 56, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -38,6 +40,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KVNY', name: 'Van Nuys Airport', city: 'Van Nuys, CA',
+    lat: 34.2098, lon: -118.4898,
     elevation: 802, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -54,6 +57,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KFXE', name: 'Fort Lauderdale Executive', city: 'Fort Lauderdale, FL',
+    lat: 26.1973, lon: -80.1707,
     elevation: 13, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -70,6 +74,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KRNT', name: 'Renton Municipal Airport', city: 'Renton, WA',
+    lat: 47.4931, lon: -122.2157,
     elevation: 32, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -81,6 +86,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KSQL', name: 'San Carlos Airport', city: 'San Carlos, CA',
+    lat: 37.5119, lon: -122.2499,
     elevation: 5, patternAGL: 800, turbinePatternAGL: 1000,
     runways: [
       {
@@ -92,6 +98,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KFRG', name: 'Republic Airport', city: 'Farmingdale, NY',
+    lat: 40.7288, lon: -73.4134,
     elevation: 80, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -108,6 +115,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KHEF', name: 'Manassas Regional Airport', city: 'Manassas, VA',
+    lat: 38.7214, lon: -77.5150,
     elevation: 192, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -124,6 +132,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KBJC', name: 'Rocky Mountain Metro Airport', city: 'Broomfield, CO',
+    lat: 39.9088, lon: -105.1172,
     elevation: 5673, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
@@ -145,6 +154,7 @@ export const AIRPORTS = [
   },
   {
     id: 'KGYI', name: 'North Texas Regional Airport', city: 'Sherman, TX',
+    lat: 33.7142, lon: -96.6736,
     elevation: 749, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {

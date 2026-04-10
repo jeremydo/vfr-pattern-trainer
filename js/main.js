@@ -34,9 +34,9 @@ state.setScreen(SCREENS.MAIN);
 hud.hide();
 requestAnimationFrame(_loop);   // start render loop immediately
 
-document.addEventListener('startFlight', _startFlight);
+document.addEventListener('startFlight', () => _startFlight().catch(console.error));
 
-function _startFlight() {
+async function _startFlight() {
   const apt     = state.selectedAirport;
   const acData  = AIRCRAFT[state.selectedAircraft.id];
   const sc      = state.selectedScenario;
@@ -56,6 +56,12 @@ function _startFlight() {
   scene.setGroundLevel(apt.elevation);
   scene.setSkyColor(sc.skyColor);
   scene.buildClouds(sc, apt.elevation);
+
+  // Terrain — fetch pre-built JSON and apply; gracefully skip if missing
+  try {
+    const res  = await fetch(`js/data/terrain/${apt.id}.json`);
+    if (res.ok) scene.buildTerrain(apt, await res.json());
+  } catch (_) {}
 
   // Starting position: chosen distance from airport at chosen compass direction
   const bearingRad = DIR_HDG[state.startDirection] * Math.PI / 180;
