@@ -185,6 +185,45 @@ export const AIRPORTS = [
         ends: [{ id: '17R', pattern: 'R' }, { id: '35L', pattern: 'L' }]
       }
     ]
+  },
+  {
+    id: 'KRHV', name: 'Reid-Hillview Airport', city: 'San Jose, CA',
+    lat: 37.3329, lon: -121.8194,
+    elevation: 133, patternAGL: 1000, turbinePatternAGL: 1500,
+    runways: [
+      {
+        id: '13R/31L', heading: 130, length: 3100, width: 75,
+        offsetX: -260, offsetZ: 0,
+        ends: [{ id: '13R', pattern: 'R' }, { id: '31L', pattern: 'L' }]
+      },
+      {
+        id: '13L/31R', heading: 130, length: 3101, width: 75,
+        offsetX: 260, offsetZ: 0,
+        ends: [{ id: '13L', pattern: 'L' }, { id: '31R', pattern: 'R' }]
+      }
+    ]
+  },
+  {
+    id: 'KSJC', name: 'San José Mineta International', city: 'San Jose, CA',
+    lat: 37.3626, lon: -121.9290,
+    elevation: 62, patternAGL: 1000, turbinePatternAGL: 1500,
+    runways: [
+      {
+        id: '12R/30L', heading: 120, length: 11000, width: 200,
+        offsetX: 700, offsetZ: 0,
+        ends: [{ id: '12R', pattern: 'R' }, { id: '30L', pattern: 'L' }]
+      },
+      {
+        id: '12L/30R', heading: 120, length: 4599, width: 150,
+        offsetX: -700, offsetZ: 0,
+        ends: [{ id: '12L', pattern: 'L' }, { id: '30R', pattern: 'R' }]
+      },
+      {
+        id: '33/15', heading: 150, length: 4973, width: 150,
+        offsetX: -2800, offsetZ: 1200,
+        ends: [{ id: '33', pattern: 'R' }, { id: '15', pattern: 'L' }]
+      }
+    ]
   }
 ];
 

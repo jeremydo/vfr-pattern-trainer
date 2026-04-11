@@ -22,6 +22,8 @@ const AIRPORTS = [
   { id: 'KBJC', lat: 39.9088, lon: -105.1172 },
   { id: 'KEUG', lat: 44.1246, lon: -123.2119 },
   { id: 'KGYI', lat: 33.7142, lon:  -96.6736 },
+  { id: 'KRHV', lat: 37.3329, lon: -121.8194 },
+  { id: 'KSJC', lat: 37.3626, lon: -121.9290 },
 ];
 
 const ZOOM     = 9;       // Terrarium tile zoom level
