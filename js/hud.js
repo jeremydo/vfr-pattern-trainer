@@ -77,96 +77,113 @@ export class HUD {
       aircraft.airspeed < aircraft.data.vs0 + 5 && !aircraft.onGround ? 'flex' : 'none';
   }
 
-  // ── AI overlay (bank arc + pitch ladder, no background fill) ─────
+  // ── AI overlay — circular G1000-style attitude indicator ──────────
   _aiOverlay(ctx, x, y, w, h, ac) {
     const cx = x + w / 2, cy = y + h / 2;
-    const ppd = h / 60;          // ±30° pitch range visible
-    const pit = ac.pitch * ppd;
+    const r   = Math.min(w, h) / 2 - 3;   // circle radius
+    const ppd = r / 22;                    // pixels per degree (±22° to rim)
+    const pitchPx = ac.pitch * ppd;
+    const bankRad = ac.bank * Math.PI / 180;
 
+    // ── 1. Circular clip: sky/ground fill + pitch ladder ─────────────
     ctx.save();
-    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
 
-    // Faint centre-panel background so instruments read over any sky colour
-    ctx.fillStyle = C.center; ctx.fillRect(x, y, w, h);
-
-    // ── Pitch ladder (bank-rotated) ──
+    // Ground fill (entire area), then sky half rotated over it
+    ctx.fillStyle = '#7A4820'; ctx.fillRect(x, y, w, h);
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(-ac.bank * Math.PI / 180);
-
-    // Horizon line
-    ctx.strokeStyle = 'rgba(255,220,0,0.9)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-w*0.22, pit); ctx.lineTo(w*0.22, pit); ctx.stroke();
-
-    ctx.font = `bold ${Math.round(h * 0.13)}px monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (let deg = -30; deg <= 30; deg += 5) {
-      if (deg === 0) continue;
-      const py = pit - deg * ppd, maj = deg % 10 === 0;
-      const len = maj ? w * 0.13 : w * 0.07;
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = maj ? 4 : 2.5;
-      ctx.beginPath(); ctx.moveTo(-len, py); ctx.lineTo(len, py); ctx.stroke();
-      ctx.strokeStyle = C.white; ctx.lineWidth = maj ? 2 : 1.5;
-      ctx.beginPath(); ctx.moveTo(-len, py); ctx.lineTo(len, py); ctx.stroke();
-      if (maj) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(-len-26, py-9, 22, 18); ctx.fillRect(len+4, py-9, 22, 18);
-        ctx.fillStyle = C.white;
-        ctx.fillText(Math.abs(deg), -len-15, py);
-        ctx.fillText(Math.abs(deg),  len+15, py);
-      }
-    }
+    ctx.translate(cx, cy + pitchPx); ctx.rotate(-bankRad);
+    ctx.fillStyle = '#2878C0'; ctx.fillRect(-r*3, -r*4, r*6, r*4);
     ctx.restore();
 
-    // ── Bank arc (fixed) ──
-    const arcR = Math.min(w * 0.36, h * 0.72);
-    ctx.save(); ctx.translate(cx, cy);
+    // Pitch ladder in bank-rotated frame
+    ctx.save();
+    ctx.translate(cx, cy + pitchPx); ctx.rotate(-bankRad);
+    const fs = Math.max(9, Math.round(r * 0.12));
+    ctx.font = `bold ${fs}px monospace`;
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+    for (let deg = -30; deg <= 30; deg += 5) {
+      if (deg === 0) continue;
+      const py  = -deg * ppd;
+      const maj = deg % 10 === 0;
+      const len = maj ? r * 0.36 : r * 0.20;
+      // shadow
+      ctx.strokeStyle = 'rgba(0,0,0,0.50)'; ctx.lineWidth = maj ? 3.5 : 2;
+      ctx.beginPath(); ctx.moveTo(-len, py); ctx.lineTo(len, py); ctx.stroke();
+      // line
+      ctx.strokeStyle = C.white; ctx.lineWidth = maj ? 1.5 : 1;
+      ctx.beginPath(); ctx.moveTo(-len, py); ctx.lineTo(len, py); ctx.stroke();
+      if (maj) {
+        ctx.fillStyle = C.white; ctx.textBaseline = 'middle';
+        ctx.textAlign = 'right'; ctx.fillText(Math.abs(deg), -len - 4, py);
+        ctx.textAlign = 'left';  ctx.fillText(Math.abs(deg),  len + 4, py);
+      }
+    }
+
+    // Horizon line (gold)
+    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-r * 0.55, 0); ctx.lineTo(r * 0.55, 0); ctx.stroke();
+    ctx.restore();
+
+    // Bezel ring drawn last inside clip so it covers ragged edges
+    ctx.strokeStyle = 'rgba(15,18,26,0.96)'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.restore(); // ── end circular clip ──
+
+    // Thin highlight ring just inside bezel
+    ctx.strokeStyle = 'rgba(90,95,115,0.7)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
+
+    // ── 2. Bank arc (outside clip, across the top) ───────────────────
+    const arcR = r + 11;
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.72)'; ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(0, 0, arcR, (-90-60)*Math.PI/180, (-90+60)*Math.PI/180);
+    ctx.arc(0, 0, arcR, (-90-58)*Math.PI/180, (-90+58)*Math.PI/180);
     ctx.stroke();
 
     for (const a of [10, 20, 30, 45, 60]) {
       for (const s of [-1, 1]) {
-        const rad = (s*a - 90) * Math.PI / 180, len = a % 30 === 0 ? 10 : 6;
+        const rad = (s*a - 90) * Math.PI / 180;
+        const tl  = a % 30 === 0 ? 10 : 6;
         ctx.strokeStyle = C.white; ctx.lineWidth = a % 30 === 0 ? 2 : 1.5;
         ctx.beginPath();
-        ctx.moveTo(Math.cos(rad)*arcR, Math.sin(rad)*arcR);
-        ctx.lineTo(Math.cos(rad)*(arcR-len), Math.sin(rad)*(arcR-len));
+        ctx.moveTo(Math.cos(rad)*arcR,       Math.sin(rad)*arcR);
+        ctx.lineTo(Math.cos(rad)*(arcR-tl),  Math.sin(rad)*(arcR-tl));
         ctx.stroke();
       }
     }
 
-    // Zero-bank triangle
+    // Fixed zero-bank reference triangle (tip at arc, points inward)
     ctx.fillStyle = C.white;
-    ctx.beginPath(); ctx.moveTo(0,-arcR+1); ctx.lineTo(-6,-arcR+12); ctx.lineTo(6,-arcR+12);
+    ctx.beginPath(); ctx.moveTo(0,-arcR+1); ctx.lineTo(-6,-arcR+13); ctx.lineTo(6,-arcR+13);
     ctx.closePath(); ctx.fill();
 
-    // Moving bank pointer
-    const pRad = (-ac.bank - 90) * Math.PI / 180;
+    // Moving bank pointer: rotates with aircraft bank
     ctx.save();
-    ctx.translate(Math.cos(pRad)*arcR, Math.sin(pRad)*arcR);
-    ctx.rotate(pRad + Math.PI/2);
-    ctx.fillStyle = C.white;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-5,-11); ctx.lineTo(5,-11);
+    ctx.rotate(-bankRad);
+    ctx.fillStyle = C.yellow;
+    ctx.beginPath(); ctx.moveTo(0,-arcR+2); ctx.lineTo(-5,-arcR+13); ctx.lineTo(5,-arcR+13);
     ctx.closePath(); ctx.fill();
     ctx.restore();
+
     ctx.restore();
 
-    // Fixed aircraft wings
-    const ww = w * 0.14;
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(cx-ww,cy); ctx.lineTo(cx-ww*0.3,cy); ctx.lineTo(cx-ww*0.3,cy+7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx+ww*0.3,cy); ctx.lineTo(cx+ww*0.3,cy+7); ctx.lineTo(cx+ww,cy); ctx.stroke();
+    // ── 3. Fixed aircraft symbol (never rotates) ──────────────────────
+    const ww = r * 0.30;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(cx-ww,cy); ctx.lineTo(cx-ww*0.28,cy); ctx.lineTo(cx-ww*0.28,cy+6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+ww*0.28,cy); ctx.lineTo(cx+ww*0.28,cy+6); ctx.lineTo(cx+ww,cy); ctx.stroke();
     ctx.strokeStyle = C.yellow; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(cx-ww,cy); ctx.lineTo(cx-ww*0.3,cy); ctx.lineTo(cx-ww*0.3,cy+7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx+ww*0.3,cy); ctx.lineTo(cx+ww*0.3,cy+7); ctx.lineTo(cx+ww,cy); ctx.stroke();
-    ctx.fillStyle = C.yellow; ctx.beginPath(); ctx.arc(cx,cy,2.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx-ww,cy); ctx.lineTo(cx-ww*0.28,cy); ctx.lineTo(cx-ww*0.28,cy+6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+ww*0.28,cy); ctx.lineTo(cx+ww*0.28,cy+6); ctx.lineTo(cx+ww,cy); ctx.stroke();
+    ctx.fillStyle = C.yellow;
+    ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI*2); ctx.fill();
     ctx.lineCap = 'butt';
-
-    ctx.strokeStyle = C.border; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
-    ctx.restore();
   }
 
   // ── Heading tape ─────────────────────────────────────────────────
