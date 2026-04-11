@@ -100,7 +100,7 @@ async function _startFlight() {
 
   scene.resize();
   scene.snapCamera(ac);
-  scene.buildPatternGuide(apt, state.selectedRunway, state.selectedEnd, patAlt);
+  scene.buildPatternGuide(apt, state.selectedRunway, state.selectedEnd, patAlt, state.selectedAircraft);
   scene.setPatternGuideVisible(guideVisible);
   state.startFlight();
   hud.show();

@@ -384,7 +384,7 @@ export class SceneManager {
   }
 
   // ── Pattern guide ─────────────────────────────────────────────
-  buildPatternGuide(airport, runway, activeEnd, patternAltMSL) {
+  buildPatternGuide(airport, runway, activeEnd, patternAltMSL, ac) {
     if (this._patternGuide) {
       this.scene.remove(this._patternGuide);
       this._patternGuide = null;
@@ -394,6 +394,26 @@ export class SceneManager {
     const patY   = patternAltMSL;
     const patAGL = patternAltMSL - elev;
     const landingHdg = parseInt(activeEnd.id) * 10;
+
+    // Scale pattern geometry to aircraft speed.
+    // speedF=1 for ~90 kt trainers, speedF=2 for ~180 kt turbines.
+    const dwSpeed = ac?.speeds?.downwind ?? 90;
+    const speedF  = dwSpeed / 90;
+
+    // 3° glidepath: altitude (ft AGL above elev) at distance d (ft) from threshold
+    const SLOPE  = Math.tan(3 * Math.PI / 180);   // ≈ 0.0524
+    const gda    = d => elev + 50 + d * SLOPE;
+
+    const OFFSET    = Math.round(4500 * speedF);   // downwind offset from centerline
+    const PAST_THR  = Math.round(4500 * speedF);   // base-to-final turn before threshold
+    const TURN_R    = Math.round(1500 * speedF);   // corner turn radius
+    const N_ARC     = Math.round(16 * Math.sqrt(speedF)); // arc smoothness
+    // Extended final: exactly the distance needed for a 3° descent from patY to threshold
+    const FINAL_EXT = Math.max(6000, Math.round(patAGL / SLOPE) - PAST_THR);
+
+    // Altitude of key final-approach points (on the 3° glidepath)
+    const finCorAlt = Math.min(patY - 80, gda(PAST_THR));   // altitude at base-to-final turn
+    const outerAlt  = Math.min(patY, gda(PAST_THR + FINAL_EXT));  // ≈ patY
 
     const rwyVec  = headingVec(landingHdg);
     const downDir = headingVec((landingHdg + 180) % 360);
@@ -405,19 +425,14 @@ export class SceneManager {
     const dptX = thr.x + rwyVec.x * runway.length;
     const dptZ = thr.z + rwyVec.z * runway.length;
 
-    const OFFSET    = 4500;
-    const PAST_THR  = 2500;
-    const FINAL_EXT = 7000;
-    const TURN_R    = 1500;   // turn radius at each corner (ft)
-
     // Corner waypoints
     const pDW    = new THREE.Vector3(dptX + perpVec.x * OFFSET, patY,
                                      dptZ + perpVec.z * OFFSET);
     const pBase  = new THREE.Vector3(thr.x + downDir.x * PAST_THR + perpVec.x * OFFSET, patY,
                                      thr.z + downDir.z * PAST_THR + perpVec.z * OFFSET);
-    const pFinal = new THREE.Vector3(thr.x + downDir.x * PAST_THR, elev + patAGL * 0.55,
+    const pFinal = new THREE.Vector3(thr.x + downDir.x * PAST_THR, finCorAlt,
                                      thr.z + downDir.z * PAST_THR);
-    const pOuter = new THREE.Vector3(thr.x - rwyVec.x * (PAST_THR + FINAL_EXT), patY,
+    const pOuter = new THREE.Vector3(thr.x - rwyVec.x * (PAST_THR + FINAL_EXT), outerAlt,
                                      thr.z - rwyVec.z * (PAST_THR + FINAL_EXT));
     const pThr   = new THREE.Vector3(thr.x, elev + 50, thr.z);
 
@@ -442,8 +457,13 @@ export class SceneManager {
       });
     };
 
-    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R);
-    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R);
+    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R, N_ARC);
+    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R, N_ARC);
+
+    // Smoothly descend through the base-to-final arc from patY → finCorAlt
+    finalArc.forEach((pt, i) => {
+      pt.y = patY + (finCorAlt - patY) * (i / (finalArc.length - 1));
+    });
 
     const group = new THREE.Group();
 
