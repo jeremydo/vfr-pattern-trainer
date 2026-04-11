@@ -286,7 +286,7 @@ export class TerrainRenderer {
       if (poly.coords.length < 3) continue;
       const cx    = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
       const cz    = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
-      const wElev = sampleElev(cx, cz, elevations, grid, radiusFt) + 20;
+      const wElev = Math.min(airport.elevation - 5, sampleElev(cx, cz, elevations, grid, radiusFt) + 20);
 
       const shape = new THREE.Shape();
       shape.moveTo(poly.coords[0][0], -poly.coords[0][1]);

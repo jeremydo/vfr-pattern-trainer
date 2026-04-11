@@ -78,7 +78,7 @@ export class HUD {
     this._vsi(ctx,        aiX+aiW+tapeW, tapeY, vsiW,   tapeH, aircraft);
     this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,   aircraft);
     this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH,  aircraft, scenario, checker);
-    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev);
+    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev, scenario);
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
@@ -381,8 +381,8 @@ export class HUD {
 
   // ── Top info bar ─────────────────────────────────────────────────
   // Layout (left → right):
-  //  [phase text] [gear icon] [flap icon] [TURBO badge?] [APT elev] [guide/dist]
-  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo, airportElev) {
+  //  [phase text] [wind arrow] [gear icon] [flap icon] [TURBO badge?] [APT elev] [guide/dist]
+  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo, airportElev, scenario) {
     ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(SX, 0, SW, 22);
 
     // Phase label
@@ -391,6 +391,44 @@ export class HUD {
     ctx.fillStyle=pc[checker.phase]||C.white;
     ctx.font='bold 11px monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
     ctx.fillText(checker.phase, SX+6, 11);
+
+    // Wind indicator (~26% from left): circle with arrow + speed knots label
+    if (scenario) {
+      const wspd = scenario.windSpeed ?? 0;
+      const wx = SX + SW * 0.26, wy = 11, wr = 8;
+      const windCol = wspd < 3 ? C.gray : wspd < 10 ? C.white : wspd < 20 ? C.yellow : C.orange;
+      ctx.save();
+      // Outer ring
+      ctx.strokeStyle = C.white; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI*2); ctx.stroke();
+      if (wspd < 3) {
+        // Calm — "C" inside circle
+        ctx.fillStyle = C.gray; ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('C', wx, wy);
+      } else {
+        // Arrow: tip points in direction wind blows toward (headwind → arrow down)
+        const relAngle = ((scenario.windFrom ?? 0) - aircraft.heading + 360) % 360;
+        const ca = Math.PI / 2 + relAngle * Math.PI / 180;
+        const r1 = wr - 1;
+        const tipX = wx + r1 * Math.cos(ca), tipY = wy + r1 * Math.sin(ca);
+        const tailX = wx - r1 * Math.cos(ca), tailY = wy - r1 * Math.sin(ca);
+        const hw = 3.5, perpX = -Math.sin(ca), perpY = Math.cos(ca);
+        ctx.strokeStyle = windCol; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(tipX, tipY); ctx.stroke();
+        ctx.fillStyle = windCol;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tipX - hw*Math.cos(ca) + hw*perpX*0.55, tipY - hw*Math.sin(ca) + hw*perpY*0.55);
+        ctx.lineTo(tipX - hw*Math.cos(ca) - hw*perpX*0.55, tipY - hw*Math.sin(ca) - hw*perpY*0.55);
+        ctx.closePath(); ctx.fill();
+      }
+      // Speed label to the right of circle
+      ctx.fillStyle = windCol; ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(Math.round(wspd) + 'kt', wx + wr + 3, wy);
+      ctx.restore();
+    }
 
     // Gear icon (~38% from left)
     const gearCol = aircraft.data.gear==='fixed' ? C.gray
