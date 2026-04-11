@@ -214,7 +214,7 @@ export const AIRPORTS = [
         ends: [{ id: '12R', pattern: 'R' }, { id: '30L', pattern: 'L' }]
       },
       {
-        id: '12L/30R', heading: 120, length: 4599, width: 150,
+        id: '12L/30R', heading: 120, length: 11000, width: 150,
         offsetX: -700, offsetZ: 0,
         ends: [{ id: '12L', pattern: 'L' }, { id: '30R', pattern: 'R' }]
       },
