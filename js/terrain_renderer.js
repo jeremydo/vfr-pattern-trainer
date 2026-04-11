@@ -48,9 +48,13 @@ function smoothNoise2D(x, z, scale) {
          hash(ix+1, iz+1) *    sx  *    sz;
 }
 
+const _snowCol   = new THREE.Color(0xF2F0EC);  // off-white snow
+const _midGreen  = new THREE.Color(0x90B050);  // lighter yellow-green field
+const _dryCol    = new THREE.Color(0xC4AA60);  // dry/crop golden-tan
+
 function elevColor(colorElevFt, airportElevFt, palette) {
-  if (colorElevFt < 0)     return _col.setHex(0x1E6E8E).clone();
-  if (colorElevFt > 11500) return _col.setHex(0xEEEEE8).clone();
+  if (colorElevFt < 0) return _col.setHex(0x1E6E8E).clone();
+  // Snow hard cutoff removed — handled with gradient in vertex loop
   const rel = colorElevFt - airportElevFt;
   let hex;
   if      (rel < -1500) hex = palette[0];
@@ -168,14 +172,35 @@ export class TerrainRenderer {
         const colorElev  = elev + (patchNoise - 0.5) * 2 * noiseRange;
         const c = elevColor(colorElev, airport.elevation, biome);
 
-        // ── Final brightness: organic patches on flat, hillshade on hills ────
+        // ── Flat land colour variety: dry/crop/lush patches ──────────────────
         const hillWeight = Math.min(1, aboveAirport / 2500);
-        const flatBright = 0.68 + patchNoise * 0.64;              // flat: 68–132%, strong patches
-        const hillBright = hillshade * (0.85 + patchNoise * 0.30); // hills: shadowed with texture
+        const flatWeight = 1 - hillWeight;
+        if (flatWeight > 0) {
+          // category drives colour type: low=lush, mid=lighter, high=dry/crop
+          const category = n1 * 0.55 + n3 * 0.45;
+          if (category > 0.38) {
+            const t = Math.min(1, (category - 0.38) / 0.32) * flatWeight;
+            c.lerp(category > 0.70 ? _dryCol : _midGreen, t * 0.75);
+          }
+        }
+
+        // ── Snow: noise-modulated gradient from 8000 ft, full at 13500 ft ────
+        const snowNoise = n1 * 0.45 + n3 * 0.55;
+        const snowT = Math.max(0, Math.min(1,
+          (elev - 8000) / 5500 * 1.4 + (snowNoise - 0.5) * 0.9
+        ));
+        if (snowT > 0) c.lerp(_snowCol, snowT);
+
+        // ── Final brightness: organic patches on flat, hillshade on hills ────
+        const flatBright = 0.68 + patchNoise * 0.64;              // flat: 68–132%
+        // Snow softens the hillshade contrast (bright diffuse surface)
+        const hsStrength = 1.6 * (1 - snowT * 0.5);
+        const hillshadeSoft = Math.max(0.40, Math.min(1.35, 0.85 + (dot - 0.577) * hsStrength));
+        const hillBright = hillshadeSoft * (0.85 + patchNoise * 0.25);
         const brightness = flatBright * (1 - hillWeight) + hillBright * hillWeight;
 
-        // Subtle warm/cool hue tint on flat land — breaks up uniform green
-        const hueTint   = (n2 - 0.5) * (1 - hillWeight);  // fades out in hills
+        // Hue tint on flat non-snow land
+        const hueTint = (n2 - 0.5) * flatWeight * (1 - snowT);
         const rMul = brightness * (1 + hueTint * 0.18);
         const gMul = brightness * (1 - Math.abs(hueTint) * 0.06);
         const bMul = brightness * (1 - hueTint * 0.14);
