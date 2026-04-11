@@ -64,12 +64,16 @@ export class Aircraft {
     if (this.flaps > 0 && this.data.vfe[this.flaps]) effCruise = Math.min(effCruise, this.data.vfe[this.flaps]);
     if (this.gearDown && this.data.vge) effCruise = Math.min(effCruise, this.data.vge);
 
-    const targetSpeed = this.data.vs1 + (effCruise - this.data.vs1) * this.throttle;
     const pitchRad    = this.pitch * DEG;
     const gravKts     = 32.2 * Math.sin(pitchRad) / KTS;
 
-    this.airspeed += (targetSpeed - this.airspeed) * this.data.accelRate * dt - gravKts * dt;
-    this.airspeed  = Math.max(this.data.vs0 * 0.7, Math.min(this.data.vne, this.airspeed));
+    if (controls.turbo) {
+      this.airspeed = 1000;
+    } else {
+      const targetSpeed = this.data.vs1 + (effCruise - this.data.vs1) * this.throttle;
+      this.airspeed += (targetSpeed - this.airspeed) * this.data.accelRate * dt - gravKts * dt;
+      this.airspeed  = Math.max(this.data.vs0 * 0.7, Math.min(this.data.vne, this.airspeed));
+    }
 
     // Vertical speed
     const stallF = Math.max(0, Math.min(1, (this.airspeed - this.data.vs0 * 0.8) / (this.data.vs1 * 0.4)));

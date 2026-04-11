@@ -187,23 +187,42 @@ export class SceneManager {
 
     for (const layer of scenario.clouds) {
       const altFt   = airportElevation + layer.agl;
-      const opacity = layer.coverage === 'FEW' ? 0.5 : layer.coverage === 'SCT' ? 0.70 : 0.88;
-      const count   = layer.coverage === 'FEW' ? 25 : layer.coverage === 'SCT' ? 55 : 110;
+      const opacity = layer.coverage === 'FEW' ? 0.50 : layer.coverage === 'SCT' ? 0.70 : 0.88;
+      const count   = layer.coverage === 'FEW' ? 25  : layer.coverage === 'SCT' ? 55  : 110;
+      // One shared material per layer
+      const mat = new THREE.MeshLambertMaterial({
+        color: 0xF2F6FA, transparent: true, opacity, depthWrite: false,
+      });
 
       for (let i = 0; i < count; i++) {
-        const w = 2800 + Math.random() * 5000;
-        const d = 1400 + Math.random() * 2600;
-        const cloud = new THREE.Mesh(
-          new THREE.BoxGeometry(w, 550, d),
-          new THREE.MeshLambertMaterial({ color: 0xF0F4F8, transparent: true, opacity })
-        );
-        cloud.position.set(
+        const group = new THREE.Group();
+        const span  = 2800 + Math.random() * 5000;
+        const nPuffs = 3 + Math.floor(Math.random() * 3);   // 3–5 puffs
+
+        for (let p = 0; p < nPuffs; p++) {
+          const r    = span * (0.17 + Math.random() * 0.14);
+          const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 9, 7), mat);
+          puff.scale.set(
+            0.9 + Math.random() * 0.3,
+            0.35 + Math.random() * 0.20,   // flatten vertically
+            0.8 + Math.random() * 0.35,
+          );
+          puff.position.set(
+            (Math.random() - 0.5) * span * 0.75,
+            (Math.random() - 0.5) * 160,
+            (Math.random() - 0.5) * span * 0.30,
+          );
+          group.add(puff);
+        }
+
+        group.position.set(
           (Math.random() - 0.5) * 260000,
-          altFt + (Math.random() - 0.5) * 400,
-          (Math.random() - 0.5) * 260000
+          altFt + (Math.random() - 0.5) * 300,
+          (Math.random() - 0.5) * 260000,
         );
-        this.scene.add(cloud);
-        this._clouds.push(cloud);
+        group.rotation.y = Math.random() * Math.PI * 2;
+        this.scene.add(group);
+        this._clouds.push(group);
       }
     }
   }
