@@ -51,26 +51,30 @@ export class HUD {
       : appState.selectedAirport.patternAGL);
 
     // Layout: size circle from strip height, then derive strip width from that.
-    // This keeps the tapes snug against the circle on any screen width.
-    const SH     = Math.min(220, Math.round(H * 0.28));
-    const hdgH   = 32;
-    const aiH    = SH - hdgH;
-    const aiR    = Math.floor(aiH / 2) - 3;          // circle radius
-    const aiW    = aiR * 2 + 16;                      // AI panel: circle + small side padding
-    const tapeW  = Math.max(58, Math.min(74, aiR * 0.90));  // proportional to circle
-    const gap    = 8;                                  // gap between tape and circle
-    const vsiW   = 18;
-    const SW     = aiW + (tapeW + gap) * 2 + vsiW;   // total strip width
-    const SX     = Math.round((W - SW) / 2);          // centred
-    const aiX    = SX + tapeW + gap;
+    // topBarH is reserved at the top for the gear/flap/phase bar so the circle
+    // sits fully below it.
+    const topBarH = 22;
+    const SH      = Math.min(220, Math.round(H * 0.28));
+    const hdgH    = 32;
+    const aiH     = SH - hdgH - topBarH;              // height available for circle
+    const aiR     = Math.floor(aiH / 2) - 3;          // circle radius
+    const aiW     = aiR * 2 + 16;                      // AI panel: circle + small side padding
+    const tapeW   = Math.max(58, Math.min(74, aiR * 0.90));
+    const gap     = 8;
+    const vsiW    = 18;
+    const SW      = aiW + (tapeW + gap) * 2 + vsiW;
+    const SX      = Math.round((W - SW) / 2);
+    const aiX     = SX + tapeW + gap;
+    const aiY     = topBarH;                           // AI circle starts below top bar
+    const hdgY    = aiY + aiH;
 
     // Draw strip panels
-    this._speedTape(ctx,  SX,              0,   tapeW,  SH,   aircraft, vr);
-    this._altTape(ctx,    aiX + aiW,       0,   tapeW,  SH,   aircraft, patAlt, elev);
-    this._vsi(ctx,        aiX+aiW+tapeW,   0,   vsiW,   SH,   aircraft);
-    this._aiOverlay(ctx,  aiX,             0,   aiW,    aiH,  aircraft);
-    this._hdgTape(ctx,    aiX,             aiH, aiW,    hdgH, aircraft, scenario, checker);
-    this._topBar(ctx,     SX, SW,          SH,  checker, aircraft, guideVisible, turbo);
+    this._speedTape(ctx,  SX,            0,     tapeW,  SH,   aircraft, vr);
+    this._altTape(ctx,    aiX + aiW,     0,     tapeW,  SH,   aircraft, patAlt, elev);
+    this._vsi(ctx,        aiX+aiW+tapeW, 0,     vsiW,   SH,   aircraft);
+    this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,  aircraft);
+    this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH, aircraft, scenario, checker);
+    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo);
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
