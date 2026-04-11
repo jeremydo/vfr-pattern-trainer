@@ -155,14 +155,13 @@ export class TerrainRenderer {
         const wz = radiusFt * (-1 + 2 * iy / segs);
         const aboveAirport = Math.max(0, elev - airport.elevation);
 
-        // ── Smooth organic noise (three scales, non-grid) ────────────────────
-        // Cell size ~8300 ft, so all scales must be >> 8300 to avoid aliasing.
-        // Offsets break accidental alignment with the terrain mesh grid.
+        // ── Smooth organic noise (four scales) ──────────────────────────────
+        // 128-grid cell size ≈ 4133 ft → Nyquist ≈ 8266 ft; all scales > 2×cell.
         const n1 = smoothNoise2D(wx,         wz,         52000);  // large regional sweeps
         const n2 = smoothNoise2D(wx + 31700, wz + 17590, 22000);  // medium patches
-        const n3 = smoothNoise2D(wx + 61000, wz + 29830, 17000);  // fine patches
-        const n4 = smoothNoise2D(wx + 47300, wz + 53100,  9000);  // detail (safe for 128-grid cells)
-        const patchNoise = n1 * 0.30 + n2 * 0.28 + n3 * 0.24 + n4 * 0.18;  // 0..1
+        const n3 = smoothNoise2D(wx + 61000, wz + 29830, 13000);  // finer patches
+        const n4 = smoothNoise2D(wx + 47300, wz + 53100, 11000);  // fine detail (>2×cell)
+        const patchNoise = n1 * 0.28 + n2 * 0.27 + n3 * 0.25 + n4 * 0.20;  // 0..1
 
         // ── Slope-based hillshade baked into vertex colour ───────────────────
         // Light from NW at ~45° elevation: lx=-0.577, ly=0.577, lz=-0.577
@@ -185,19 +184,30 @@ export class TerrainRenderer {
         const flatWeight = 1 - hillWeight;
         if (flatWeight > 0) {
           // category drives colour type: low=lush, mid=lighter, high=dry/crop
-          const category = n1 * 0.55 + n3 * 0.45;
-          if (category > 0.30) {
-            const t = Math.min(1, (category - 0.30) / 0.35) * flatWeight;
-            c.lerp(category > 0.65 ? _dryCol : _midGreen, t * 0.85);
+          const category = n1 * 0.50 + n3 * 0.30 + n4 * 0.20;
+          if (category > 0.25) {
+            const t = Math.min(1, (category - 0.25) / 0.30) * flatWeight;
+            c.lerp(category > 0.60 ? _dryCol : _midGreen, t * 0.92);
           }
         }
 
         // ── Rocky slope variation: steep faces blend toward rock colours ──────
         const slopeMag  = Math.sqrt(dex * dex + dez * dez);
-        const rockiness = Math.min(1, slopeMag * 0.6) * hillWeight;
-        if (rockiness > 0.08) {
-          const rockCol = (n2 + n3 * 0.4) > 0.55 ? _rockCol1 : _rockCol2;
-          c.lerp(rockCol, rockiness * 0.70);
+        const rockiness = Math.min(1, slopeMag * 2.4) * hillWeight;
+        if (rockiness > 0.05) {
+          const rockCol = (n2 + n3 * 0.4) > 0.52 ? _rockCol1 : _rockCol2;
+          c.lerp(rockCol, rockiness * 0.82);
+        }
+
+        // ── Noise-driven rocky outcrops at elevation (independent of slope) ───
+        // Scattered rock patches on mountain terrain even on gentler slopes.
+        const highFrac = Math.min(1, Math.max(0, (elev - airport.elevation - 1500) / 5000));
+        if (highFrac > 0) {
+          const outcrop = (n2 * 0.55 + n4 * 0.45);  // 0..1 outcrop noise
+          if (outcrop > 0.58) {
+            const ot = Math.min(1, (outcrop - 0.58) / 0.28) * highFrac;
+            c.lerp(outcrop > 0.75 ? _rockCol2 : _rockCol1, ot * 0.60);
+          }
         }
 
         // ── Snow: noise-modulated gradient from 8000 ft, full at 13500 ft ────
@@ -208,11 +218,11 @@ export class TerrainRenderer {
         if (snowT > 0) c.lerp(_snowCol, snowT);
 
         // ── Final brightness: organic patches on flat, hillshade on hills ────
-        const flatBright = 0.58 + patchNoise * 0.88;              // flat: 58–146%
+        const flatBright = 0.55 + patchNoise * 0.95;              // flat: 55–150%
         // Snow softens the hillshade contrast (bright diffuse surface)
-        const hsStrength = 1.6 * (1 - snowT * 0.5);
-        const hillshadeSoft = Math.max(0.40, Math.min(1.35, 0.85 + (dot - 0.577) * hsStrength));
-        const hillBright = hillshadeSoft * (0.85 + patchNoise * 0.25);
+        const hsStrength = 2.2 * (1 - snowT * 0.5);               // stronger mountain contrast
+        const hillshadeSoft = Math.max(0.28, Math.min(1.55, 0.85 + (dot - 0.577) * hsStrength));
+        const hillBright = hillshadeSoft * (0.75 + patchNoise * 0.50);  // 75–125% patch variation
         const brightness = flatBright * (1 - hillWeight) + hillBright * hillWeight;
 
         // Hue tint on flat non-snow land
@@ -232,7 +242,7 @@ export class TerrainRenderer {
 
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       vertexColors: true,
-      flatShading:  true,
+      flatShading:  false,   // smooth: vertex colours interpolate across faces
     })));
 
     // ── Water polygons ───────────────────────────────────────────────────────
