@@ -50,16 +50,18 @@ export class HUD {
       ? appState.selectedAirport.turbinePatternAGL
       : appState.selectedAirport.patternAGL);
 
-    // Strip: 30% of screen width, centred at top
-    const SW     = Math.round(W * 0.30);
-    const SX     = Math.round((W - SW) / 2);        // left edge of strip
+    // Layout: size circle from strip height, then derive strip width from that.
+    // This keeps the tapes snug against the circle on any screen width.
     const SH     = Math.min(220, Math.round(H * 0.28));
-    const tapeW  = Math.max(58, Math.min(74, SW * 0.22));
-    const vsiW   = 20;
     const hdgH   = 32;
     const aiH    = SH - hdgH;
+    const aiR    = Math.floor(aiH / 2) - 3;          // circle radius
+    const aiW    = aiR * 2 + 10;                      // AI panel just wide enough for circle
+    const tapeW  = Math.max(54, Math.min(70, aiR * 0.80));  // proportional to circle
+    const vsiW   = 18;
+    const SW     = aiW + tapeW * 2 + vsiW;            // total strip width
+    const SX     = Math.round((W - SW) / 2);          // centred
     const aiX    = SX + tapeW;
-    const aiW    = SW - tapeW * 2 - vsiW;
 
     // Draw strip panels
     this._speedTape(ctx,  SX,              0,   tapeW,  SH,   aircraft, vr);
