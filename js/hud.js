@@ -68,13 +68,17 @@ export class HUD {
     const aiY     = topBarH;                           // AI circle starts below top bar
     const hdgY    = aiY + aiH;
 
+    // Tapes start below the top bar so they don't overlap the phase/gear/flap row
+    const tapeY = topBarH;
+    const tapeH = SH - topBarH;
+
     // Draw strip panels
-    this._speedTape(ctx,  SX,            0,     tapeW,  SH,   aircraft, vr);
-    this._altTape(ctx,    aiX + aiW,     0,     tapeW,  SH,   aircraft, patAlt, elev);
-    this._vsi(ctx,        aiX+aiW+tapeW, 0,     vsiW,   SH,   aircraft);
-    this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,  aircraft);
-    this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH, aircraft, scenario, checker);
-    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo);
+    this._speedTape(ctx,  SX,            tapeY, tapeW,  tapeH, aircraft, vr);
+    this._altTape(ctx,    aiX + aiW,     tapeY, tapeW,  tapeH, aircraft, patAlt);
+    this._vsi(ctx,        aiX+aiW+tapeW, tapeY, vsiW,   tapeH, aircraft);
+    this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,   aircraft);
+    this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH,  aircraft, scenario, checker);
+    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev);
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
@@ -307,7 +311,7 @@ export class HUD {
   }
 
   // ── Altitude Tape ────────────────────────────────────────────────
-  _altTape(ctx, x, y, w, h, ac, patAlt, airportElev) {
+  _altTape(ctx, x, y, w, h, ac, patAlt) {
     const alt=ac.position.y, ppf=h/800, cy=y+h/2;
     ctx.fillStyle=C.tape; ctx.fillRect(x,y,w,h);
     ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
@@ -346,13 +350,7 @@ export class HUD {
 
     ctx.fillStyle='#aaa'; ctx.font=`${Math.round(h*0.036)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.fillText('ALT ft', x+w/2, y+h-25);
-
-    // Airport elevation badge at bottom of tape
-    ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(x, y+h-22, w, 22);
-    ctx.fillStyle=C.green; ctx.font=`bold ${Math.min(11,Math.round(h*0.044))}px monospace`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('APT '+Math.round(airportElev), x+w/2, y+h-11);
+    ctx.fillText('ALT ft', x+w/2, y+h-6);
 
     ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
   }
@@ -383,8 +381,8 @@ export class HUD {
 
   // ── Top info bar ─────────────────────────────────────────────────
   // Layout (left → right):
-  //  [phase text] [gear icon] [flap icon] [TURBO badge?] [guide/dist]
-  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo) {
+  //  [phase text] [gear icon] [flap icon] [TURBO badge?] [APT elev] [guide/dist]
+  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo, airportElev) {
     ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(SX, 0, SW, 22);
 
     // Phase label
@@ -413,6 +411,13 @@ export class HUD {
       ctx.fillStyle=C.orange; ctx.font='bold 11px monospace';
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('TURBO', tx, 11);
+    }
+
+    // Airport elevation (centre-right)
+    if (airportElev != null) {
+      ctx.fillStyle = C.green;
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('APT ' + Math.round(airportElev), SX + SW * 0.72, 11);
     }
 
     // Distance / GUIDE (right)
