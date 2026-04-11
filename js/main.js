@@ -36,6 +36,19 @@ requestAnimationFrame(_loop);   // start render loop immediately
 
 document.addEventListener('startFlight', () => _startFlight().catch(console.error));
 
+// Sample corrected terrain elevation at a world (x, z) position from raw JSON data
+function _sampleTerrainElev(wx, wz, data, airportElev) {
+  const { grid, radiusFt, elevations } = data;
+  const segs = grid - 1;
+  const ci   = Math.floor(segs / 2);
+  const avg4 = (elevations[ci*grid+ci] + elevations[ci*grid+(ci+1)] +
+                elevations[(ci+1)*grid+ci] + elevations[(ci+1)*grid+(ci+1)]) / 4;
+  const correction = airportElev - avg4;
+  const j = Math.max(0, Math.min(segs, Math.round((wx + radiusFt) / (2 * radiusFt) * segs)));
+  const i = Math.max(0, Math.min(segs, Math.round((wz + radiusFt) / (2 * radiusFt) * segs)));
+  return (elevations[i * grid + j] ?? airportElev) + correction;
+}
+
 async function _startFlight() {
   const apt     = state.selectedAirport;
   const acData  = AIRCRAFT[state.selectedAircraft.id];
@@ -57,18 +70,24 @@ async function _startFlight() {
   scene.setSkyColor(sc.skyColor);
   scene.buildClouds(sc, apt.elevation);
 
-  // Terrain — fetch pre-built JSON and apply; gracefully skip if missing
-  try {
-    const res  = await fetch(`js/data/terrain/${apt.id}.json`);
-    if (res.ok) scene.buildTerrain(apt, await res.json());
-  } catch (_) {}
-
   // Starting position: chosen distance from airport at chosen compass direction
   const bearingRad = DIR_HDG[state.startDirection] * Math.PI / 180;
   const startX = Math.sin(bearingRad) * state.startDistance * NM;
   const startZ = -Math.cos(bearingRad) * state.startDistance * NM;
   const patAlt  = getPatternAlt(apt, acData.type === 'turbine');
-  const startAlt= patAlt + 1500;
+
+  // Terrain — fetch pre-built JSON; sample elevation at spawn point so the
+  // aircraft never starts underground when the entry direction is into mountains.
+  let startAlt = patAlt + 1500;
+  try {
+    const res  = await fetch(`js/data/terrain/${apt.id}.json`);
+    if (res.ok) {
+      const tData = await res.json();
+      scene.buildTerrain(apt, tData);
+      const spawnElev = _sampleTerrainElev(startX, startZ, tData, apt.elevation);
+      startAlt = Math.max(patAlt + 1500, spawnElev + 2000);
+    }
+  } catch (_) {}
   const inbound = (DIR_HDG[state.startDirection] + 180) % 360;
 
   ac = new Aircraft(acData, scene.scene);
