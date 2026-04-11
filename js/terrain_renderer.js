@@ -15,7 +15,7 @@ const BIOMES = {
 const AIRPORT_BIOMES = {
   KAPA: 'arid_mountain', KBJC: 'arid_mountain',
   KSNA: 'arid',          KVNY: 'arid',          KSQL: 'arid',
-  KRHV: 'arid',          KSJC: 'arid',
+  KRHV: 'arid',          KSJC: 'arid',          KPAO: 'arid',
   KFXE: 'tropical',
   KRNT: 'temperate',     KFRG: 'temperate',     KHEF: 'temperate',
   KEUG: 'temperate',
@@ -286,7 +286,11 @@ export class TerrainRenderer {
       if (poly.coords.length < 3) continue;
       const cx    = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
       const cz    = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
-      const wElev = Math.min(airport.elevation - 5, sampleElev(cx, cz, elevations, grid, radiusFt) + 20);
+      // Use raw (pre-flat-zone) elevations so water never floats above the flat-zone-raised terrain
+      const wElev = Math.min(
+        sampleElev(cx, cz, data.elevations, grid, radiusFt) + correction + 2,
+        airport.elevation - 5
+      );
 
       const shape = new THREE.Shape();
       shape.moveTo(poly.coords[0][0], -poly.coords[0][1]);

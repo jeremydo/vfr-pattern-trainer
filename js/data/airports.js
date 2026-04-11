@@ -209,6 +209,18 @@ export const AIRPORTS = [
     ]
   },
   {
+    id: 'KPAO', name: 'Palo Alto Airport', city: 'Palo Alto, CA',
+    lat: 37.4611, lon: -122.1150,
+    elevation: 7, patternAGL: 800, turbinePatternAGL: 1000,
+    runways: [
+      {
+        id: '13/31', heading: 127, length: 2441, width: 70,
+        offsetX: 0, offsetZ: 0,
+        ends: [{ id: '13', pattern: 'L' }, { id: '31', pattern: 'R' }]
+      }
+    ]
+  },
+  {
     id: 'KSJC', name: 'San José Mineta International', city: 'San Jose, CA',
     lat: 37.3626, lon: -121.9290,
     elevation: 62, patternAGL: 1000, turbinePatternAGL: 1500,
