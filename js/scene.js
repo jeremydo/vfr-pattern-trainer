@@ -233,9 +233,9 @@ export class SceneManager {
     }));
 
     let treeCount = 0;
-    for (let attempt = 0; attempt < 10000 && treeCount < 1400; attempt++) {
+    for (let attempt = 0; attempt < 18000 && treeCount < 2000; attempt++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist  = rng(28000, 230000);
+      const dist  = rng(8000, 245000);
       const wx = Math.cos(angle) * dist, wz = Math.sin(angle) * dist;
       if (Math.abs(wx) > lim || Math.abs(wz) > lim) continue;
       const elev = sampleE(wx, wz);
@@ -264,9 +264,9 @@ export class SceneManager {
     const roofMats = [0x8B3A2F, 0x9B4535, 0x7A3025, 0xA05040, 0x6A3020, 0x703828]
       .map(c => new THREE.MeshLambertMaterial({ color: c }));
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 300; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist  = rng(35000, 180000);
+      const dist  = rng(8000, 200000);
       const bx = Math.cos(angle) * dist, bz = Math.sin(angle) * dist;
       if (Math.abs(bx) > lim || Math.abs(bz) > lim) continue;
       const baseElev = sampleE(bx, bz);

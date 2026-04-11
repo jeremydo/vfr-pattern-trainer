@@ -28,6 +28,35 @@ const FLAT_OUTER_FT = 35000;  // ~6.6 miles — blend complete, real terrain sta
 
 const _col = new THREE.Color();
 
+// Build a tiling grayscale detail texture from multi-octave value noise.
+// Tiles at `tileFt` world-feet intervals; vertex colours are multiplied by it.
+// Range ≈ 0.55–1.00 (centre ~0.78) — vertex colours compensated ×1/0.78 below.
+function _makeDetailTex(side) {
+  const S    = 512;
+  const buf  = new Uint8Array(S * S * 4);
+  // Scales in texture pixels (1 px = tileFt/S ft in world space)
+  const sA = 112, sB = 48, sC = 20, sD = 9;
+  for (let ty = 0; ty < S; ty++) {
+    for (let tx = 0; tx < S; tx++) {
+      const v =
+        smoothNoise2D(tx,           ty,           sA) * 0.38 +
+        smoothNoise2D(tx + 157,     ty +  89,     sB) * 0.30 +
+        smoothNoise2D(tx + 271,     ty + 213,     sC) * 0.20 +
+        smoothNoise2D(tx +  83,     ty + 347,     sD) * 0.12;
+      // Map 0..1 → 140..255 (0.55..1.00)
+      const g = 140 + Math.round(v * 115);
+      const i = (ty * S + tx) * 4;
+      buf[i] = buf[i+1] = buf[i+2] = g; buf[i+3] = 255;
+    }
+  }
+  const tex = new THREE.DataTexture(buf, S, S, THREE.RGBAFormat);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  const tileFt = 8000;
+  tex.repeat.set(side / tileFt, side / tileFt);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 // Deterministic hash 0..1 from grid indices — gives each vertex a stable random value
 function hash(ix, iy) {
   const s = Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453;
@@ -141,9 +170,12 @@ export class TerrainRenderer {
     const geo = new THREE.PlaneGeometry(side, side, segs, segs);
     geo.rotateX(-Math.PI / 2);
 
-    const pos      = geo.attributes.position;
-    const colBuf   = new Float32Array(pos.count * 3);
-    const cellSize = side / segs;
+    const pos       = geo.attributes.position;
+    const colBuf    = new Float32Array(pos.count * 3);
+    const cellSize  = side / segs;
+    // Detail texture multiplied with vertex colours — compensate brightness upward
+    // so average = 1.0 (texture averages ~0.78, so ×1.28 keeps overall luminance).
+    const COMP = 1.28;
 
     for (let iy = 0; iy < grid; iy++) {
       for (let ix = 0; ix < grid; ix++) {
@@ -231,18 +263,20 @@ export class TerrainRenderer {
         const gMul = brightness * (1 - Math.abs(hueTint) * 0.06);
         const bMul = brightness * (1 - hueTint * 0.14);
 
-        colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * rMul));
-        colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * gMul));
-        colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * bMul));
+        colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * rMul * COMP));
+        colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * gMul * COMP));
+        colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * bMul * COMP));
       }
     }
     pos.needsUpdate = true;
     geo.setAttribute('color', new THREE.BufferAttribute(colBuf, 3));
     geo.computeVertexNormals();
 
+    const detailTex = _makeDetailTex(side);
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       vertexColors: true,
-      flatShading:  false,   // smooth: vertex colours interpolate across faces
+      flatShading:  false,
+      map:          detailTex,   // tiling noise × vertex colour → fine surface detail
     })));
 
     // ── Water polygons ───────────────────────────────────────────────────────
