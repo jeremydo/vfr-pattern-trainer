@@ -78,14 +78,18 @@ async function _startFlight() {
 
   // Terrain — fetch pre-built JSON; sample elevation at spawn point so the
   // aircraft never starts underground when the entry direction is into mountains.
-  let startAlt = patAlt + 1500;
+  // AGL above airport elevation at each starting distance
+  const DIST_AGL = { 2: 1500, 5: 3000, 10: 5000, 20: 8000 };
+  const agl = DIST_AGL[state.startDistance] ?? 1500;
+  let startAlt = apt.elevation + agl;
   try {
     const res  = await fetch(`js/data/terrain/${apt.id}.json`);
     if (res.ok) {
       const tData = await res.json();
       scene.buildTerrain(apt, tData);
+      // Ensure we're never underground — add 1000 ft clearance above spawn terrain
       const spawnElev = _sampleTerrainElev(startX, startZ, tData, apt.elevation);
-      startAlt = Math.max(patAlt + 1500, spawnElev + 2000);
+      startAlt = Math.max(startAlt, spawnElev + 1000);
     }
   } catch (_) {}
   const inbound = (DIR_HDG[state.startDirection] + 180) % 360;

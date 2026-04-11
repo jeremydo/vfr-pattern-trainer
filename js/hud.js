@@ -63,7 +63,7 @@ export class HUD {
 
     // Draw strip panels
     this._speedTape(ctx,  SX,              0,   tapeW,  SH,   aircraft, vr);
-    this._altTape(ctx,    aiX + aiW,       0,   tapeW,  SH,   aircraft, patAlt);
+    this._altTape(ctx,    aiX + aiW,       0,   tapeW,  SH,   aircraft, patAlt, elev);
     this._vsi(ctx,        aiX+aiW+tapeW,   0,   vsiW,   SH,   aircraft);
     this._aiOverlay(ctx,  aiX,             0,   aiW,    aiH,  aircraft);
     this._hdgTape(ctx,    aiX,             aiH, aiW,    hdgH, aircraft, scenario, checker);
@@ -283,7 +283,7 @@ export class HUD {
   }
 
   // ── Altitude Tape ────────────────────────────────────────────────
-  _altTape(ctx, x, y, w, h, ac, patAlt) {
+  _altTape(ctx, x, y, w, h, ac, patAlt, airportElev) {
     const alt=ac.position.y, ppf=h/800, cy=y+h/2;
     ctx.fillStyle=C.tape; ctx.fillRect(x,y,w,h);
     ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
@@ -322,7 +322,14 @@ export class HUD {
 
     ctx.fillStyle='#aaa'; ctx.font=`${Math.round(h*0.036)}px sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.fillText('ALT ft', x+w/2, y+h-3);
+    ctx.fillText('ALT ft', x+w/2, y+h-25);
+
+    // Airport elevation badge at bottom of tape
+    ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(x, y+h-22, w, 22);
+    ctx.fillStyle=C.green; ctx.font=`bold ${Math.min(11,Math.round(h*0.044))}px monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('APT '+Math.round(airportElev), x+w/2, y+h-11);
+
     ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
   }
 
