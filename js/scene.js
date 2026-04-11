@@ -187,6 +187,109 @@ export class SceneManager {
     // lowest near the airport).  It remains as a distant horizon fallback.
     this.groundMesh.position.y = airport.elevation - 2000;
     this._terrain.build(airport, data);
+    this._buildTerrainScenery(airport, data);
+  }
+
+  _buildTerrainScenery(airport, data) {
+    if (this._terrainSceneryGroup) {
+      this.scene.remove(this._terrainSceneryGroup);
+      this._terrainSceneryGroup = null;
+    }
+    const group = new THREE.Group();
+    this._terrainSceneryGroup = group;
+    this.scene.add(group);
+
+    // Inline elevation sampler matching terrain_renderer correction
+    const { grid, radiusFt, elevations } = data;
+    const segs = grid - 1;
+    const ci   = Math.floor(segs / 2);
+    const avg4 = (elevations[ci*grid+ci] + elevations[ci*grid+(ci+1)] +
+                  elevations[(ci+1)*grid+ci] + elevations[(ci+1)*grid+(ci+1)]) / 4;
+    const correction = airport.elevation - avg4;
+    const sampleE = (wx, wz) => {
+      const j = Math.max(0, Math.min(segs, Math.round((wx + radiusFt) / (2 * radiusFt) * segs)));
+      const i = Math.max(0, Math.min(segs, Math.round((wz + radiusFt) / (2 * radiusFt) * segs)));
+      return (elevations[i * grid + j] ?? airport.elevation) + correction;
+    };
+
+    const rng = (a, b) => a + Math.random() * (b - a);
+    const lim = radiusFt * 0.92;
+
+    // Shared geometries (reused across all instances)
+    const trunkMat     = new THREE.MeshLambertMaterial({ color: 0x5C3A1E });
+    const coniferMats  = [0x2D6A2D, 0x286228, 0x255A22, 0x2F6030]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+    const deciduousMats = [0x4A8030, 0x5A9035, 0x3D7828, 0x6A9840]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+    const coniferGeos  = [28, 45, 68].map(h => ({
+      trunk:   new THREE.CylinderGeometry(1.8, 3.5, h * 0.45, 5),
+      foliage: new THREE.ConeGeometry(h * 0.30, h * 0.70, 6),
+      h,
+    }));
+    const decidGeos = [22, 38, 58].map(h => ({
+      trunk:   new THREE.CylinderGeometry(1.4, 3.0, h * 0.45, 5),
+      foliage: new THREE.SphereGeometry(h * 0.30, 7, 5),
+      h,
+    }));
+
+    let treeCount = 0;
+    for (let attempt = 0; attempt < 10000 && treeCount < 1400; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = rng(28000, 230000);
+      const wx = Math.cos(angle) * dist, wz = Math.sin(angle) * dist;
+      if (Math.abs(wx) > lim || Math.abs(wz) > lim) continue;
+      const elev = sampleE(wx, wz);
+      if (elev > 7800) continue;  // no trees above snowline
+
+      const deciduous = Math.random() < 0.35 && elev < 6000;
+      const geoSet = deciduous
+        ? decidGeos[Math.floor(Math.random() * decidGeos.length)]
+        : coniferGeos[Math.floor(Math.random() * coniferGeos.length)];
+      const { h } = geoSet;
+
+      const trunk   = new THREE.Mesh(geoSet.trunk, trunkMat);
+      trunk.position.set(wx, elev + h * 0.22, wz);
+      const foliage = new THREE.Mesh(
+        geoSet.foliage,
+        deciduous ? deciduousMats[treeCount % 4] : coniferMats[treeCount % 4]
+      );
+      foliage.position.set(wx, deciduous ? elev + h * 0.78 : elev + h * 0.70, wz);
+      group.add(trunk, foliage);
+      treeCount++;
+    }
+
+    // Houses — only in lower, flatter areas
+    const wallMats = [0xD4C4A8, 0xC8B898, 0xDDD0B0, 0xBFBFA8, 0xC4B8A0, 0xD8CEB8]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+    const roofMats = [0x8B3A2F, 0x9B4535, 0x7A3025, 0xA05040, 0x6A3020, 0x703828]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+
+    for (let i = 0; i < 200; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = rng(35000, 180000);
+      const bx = Math.cos(angle) * dist, bz = Math.sin(angle) * dist;
+      if (Math.abs(bx) > lim || Math.abs(bz) > lim) continue;
+      const baseElev = sampleE(bx, bz);
+      if (baseElev > 6200) continue;  // no houses on high terrain
+
+      const count = Math.floor(rng(1, 5));
+      for (let j = 0; j < count; j++) {
+        const ox = bx + rng(-400, 400), oz = bz + rng(-400, 400);
+        if (Math.abs(ox) > lim || Math.abs(oz) > lim) continue;
+        const ey = sampleE(ox, oz);
+        const w  = rng(50, 120), d = rng(40, 90), h = rng(20, 44);
+        const mi = (i * 4 + j) % wallMats.length;
+        const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[mi]);
+        body.position.set(ox, ey + h / 2, oz);
+        const roof = new THREE.Mesh(
+          new THREE.CylinderGeometry(0, Math.max(w, d) * 0.62, h * 0.55, 4),
+          roofMats[mi]
+        );
+        roof.position.set(ox, ey + h + h * 0.27, oz);
+        roof.rotation.y = Math.PI / 4;
+        group.add(body, roof);
+      }
+    }
   }
 
   sampleTerrainElevation(wx, wz) { return this._terrain.sampleElevation(wx, wz); }

@@ -51,6 +51,8 @@ function smoothNoise2D(x, z, scale) {
 const _snowCol   = new THREE.Color(0xF2F0EC);  // off-white snow
 const _midGreen  = new THREE.Color(0x90B050);  // lighter yellow-green field
 const _dryCol    = new THREE.Color(0xC4AA60);  // dry/crop golden-tan
+const _rockCol1  = new THREE.Color(0x8A7A68);  // lighter rock face
+const _rockCol2  = new THREE.Color(0x6E5E50);  // darker rock crevice
 
 function elevColor(colorElevFt, airportElevFt, palette) {
   if (colorElevFt < 0) return _col.setHex(0x1E6E8E).clone();
@@ -185,8 +187,16 @@ export class TerrainRenderer {
           const category = n1 * 0.55 + n3 * 0.45;
           if (category > 0.30) {
             const t = Math.min(1, (category - 0.30) / 0.35) * flatWeight;
-            c.lerp(category > 0.65 ? _dryCol : _midGreen, t * 0.80);
+            c.lerp(category > 0.65 ? _dryCol : _midGreen, t * 0.85);
           }
+        }
+
+        // ── Rocky slope variation: steep faces blend toward rock colours ──────
+        const slopeMag  = Math.sqrt(dex * dex + dez * dez);
+        const rockiness = Math.min(1, slopeMag * 0.6) * hillWeight;
+        if (rockiness > 0.08) {
+          const rockCol = (n2 + n3 * 0.4) > 0.55 ? _rockCol1 : _rockCol2;
+          c.lerp(rockCol, rockiness * 0.70);
         }
 
         // ── Snow: noise-modulated gradient from 8000 ft, full at 13500 ft ────
@@ -197,7 +207,7 @@ export class TerrainRenderer {
         if (snowT > 0) c.lerp(_snowCol, snowT);
 
         // ── Final brightness: organic patches on flat, hillshade on hills ────
-        const flatBright = 0.68 + patchNoise * 0.64;              // flat: 68–132%
+        const flatBright = 0.58 + patchNoise * 0.88;              // flat: 58–146%
         // Snow softens the hillshade contrast (bright diffuse surface)
         const hsStrength = 1.6 * (1 - snowT * 0.5);
         const hillshadeSoft = Math.max(0.40, Math.min(1.35, 0.85 + (dot - 0.577) * hsStrength));

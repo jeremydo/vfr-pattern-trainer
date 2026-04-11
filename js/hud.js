@@ -393,10 +393,11 @@ export class HUD {
     this._drawGearIcon(ctx, SX + SW*0.38, 11, gearCol,
                        aircraft.data.gear==='fixed', aircraft.gearDown);
 
-    // Flap icon (~52% from left)
+    // Flap icon (~50% from left)
     const flapFrac = aircraft.data.flaps.length > 1
       ? aircraft.flaps / (aircraft.data.flaps.length - 1) : 0;
-    this._drawFlapIcon(ctx, SX + SW*0.52, 11, flapFrac);
+    const flapPos  = aircraft.flaps;
+    this._drawFlapIcon(ctx, SX + SW*0.50, 11, flapFrac, flapPos);
 
     // TURBO badge (~64%) — only when active
     if (turbo) {
@@ -436,18 +437,33 @@ export class HUD {
     ctx.restore();
   }
 
-  // Wing chord + trailing-edge flap deflection.
+  // Wing chord + trailing-edge flap deflection + position label.
   // flapFrac 0 = up (inline with chord), 1 = full down (~42°).
-  _drawFlapIcon(ctx, cx, cy, flapFrac) {
+  _drawFlapIcon(ctx, cx, cy, flapFrac, flapPos) {
+    const col = flapFrac === 0 ? C.white : flapFrac < 0.5 ? C.yellow : C.orange;
     ctx.save();
-    ctx.strokeStyle = flapFrac > 0.5 ? C.orange : C.white;
-    ctx.lineWidth = 2; ctx.lineCap = 'round';
+
+    // Background pill when flaps are extended
+    if (flapFrac > 0) {
+      ctx.fillStyle = flapFrac > 0.5 ? 'rgba(255,120,0,0.22)' : 'rgba(255,220,0,0.18)';
+      ctx.beginPath();
+      ctx.rect(cx - 24, cy - 9, 48, 18);
+      ctx.fill();
+    }
+
+    // Wing + flap graphic (scaled up from original)
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
     const angle = flapFrac * 42 * Math.PI / 180;
-    // Wing chord (trailing edge at cx)
-    ctx.beginPath(); ctx.moveTo(cx - 9, cy); ctx.lineTo(cx, cy); ctx.stroke();
-    // Flap (from hinge, deflecting down-right)
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle)*7, cy + Math.sin(angle)*7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 16, cy); ctx.lineTo(cx - 2, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 2, cy);
+    ctx.lineTo(cx - 2 + Math.cos(angle) * 11, cy + Math.sin(angle) * 11); ctx.stroke();
+
+    // Flap position number (right of graphic)
+    ctx.fillStyle = col;
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('F' + flapPos, cx + 12, cy);
+
     ctx.restore();
   }
 
