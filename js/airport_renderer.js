@@ -5,9 +5,9 @@ const DEG = Math.PI / 180;
 
 // Natural aspect ratios (width/height) from extracted FAA spec PNGs (D>2.5 distance-transform threshold)
 const GLYPH_AR = {
-  '0':70/169,  '1':37/169,  '2':67/169,  '3':67/168,
+  '0':123/169, '1':37/169,  '2':67/169,  '3':67/168,
   '4':80/167,  '5':68/169,  '6':70/171,  '7':76/167,
-  '8':68/166,  '9':70/171,  'L':67/168,  'R':67/168,  'C':66/164
+  '8':68/166,  '9':124/170, 'L':67/168,  'R':67/168,  'C':66/164
 };
 
 export class AirportRenderer {
