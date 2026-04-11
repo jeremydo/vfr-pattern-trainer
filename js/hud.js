@@ -395,7 +395,7 @@ export class HUD {
     // Wind indicator (~26% from left): circle with arrow + speed knots label
     if (scenario) {
       const wspd = scenario.windSpeed ?? 0;
-      const wx = SX + SW * 0.26, wy = 11, wr = 8;
+      const wx = SX + SW * 0.20, wy = 11, wr = 8;
       const windCol = wspd < 3 ? C.gray : wspd < 10 ? C.white : wspd < 20 ? C.yellow : C.orange;
       ctx.save();
       // Outer ring
