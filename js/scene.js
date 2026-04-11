@@ -468,7 +468,7 @@ export class SceneManager {
     const group = new THREE.Group();
 
     // CatmullRomCurve3 tube — passes smoothly through all pts
-    const makeTube = (pts, color, opacity = 0.78, r = 18) => {
+    const makeTube = (pts, color, opacity = 0.38, r = 18) => {
       const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
       const segs  = Math.max(40, pts.length * 8);
       group.add(new THREE.Mesh(
@@ -486,7 +486,7 @@ export class SceneManager {
         const tan = curve.getTangentAt(t).normalize();
         const m   = new THREE.Mesh(
           new THREE.ConeGeometry(28, 90, 6),
-          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 })
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45 })
         );
         m.position.copy(pos);
         m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
@@ -497,7 +497,7 @@ export class SceneManager {
     const addNode = (p, color, r = 50) => {
       const m = new THREE.Mesh(
         new THREE.SphereGeometry(r, 8, 6),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.88 })
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45 })
       );
       m.position.copy(p);
       group.add(m);
@@ -543,7 +543,7 @@ export class SceneManager {
     extPath.add(new THREE.LineCurve3(pOuter, finalArc[0]));
     group.add(new THREE.Mesh(
       new THREE.TubeGeometry(extPath, 20, 12, 8, false),
-      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.28 })
+      new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.18 })
     ));
 
     // Waypoint nodes

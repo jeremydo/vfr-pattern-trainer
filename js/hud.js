@@ -399,10 +399,11 @@ export class HUD {
                        aircraft.data.gear==='fixed', aircraft.gearDown);
 
     // Flap icon (~50% from left)
-    const flapFrac = aircraft.data.flaps.length > 1
+    const flapFrac  = aircraft.data.flaps.length > 1
       ? aircraft.flaps / (aircraft.data.flaps.length - 1) : 0;
-    const flapPos  = aircraft.flaps;
-    this._drawFlapIcon(ctx, SX + SW*0.50, 11, flapFrac, flapPos);
+    const flapPos   = aircraft.flaps;
+    const flapLabel = aircraft.data.flapLabels?.[flapPos] ?? ('F' + flapPos);
+    this._drawFlapIcon(ctx, SX + SW*0.50, 11, flapFrac, flapLabel);
 
     // TURBO badge (~64%) — only when active
     if (turbo) {
@@ -451,7 +452,7 @@ export class HUD {
 
   // Wing chord + trailing-edge flap deflection + position label.
   // flapFrac 0 = up (inline with chord), 1 = full down (~42°).
-  _drawFlapIcon(ctx, cx, cy, flapFrac, flapPos) {
+  _drawFlapIcon(ctx, cx, cy, flapFrac, flapLabel) {
     const col = flapFrac === 0 ? C.white : flapFrac < 0.5 ? C.yellow : C.orange;
     ctx.save();
 
@@ -474,7 +475,7 @@ export class HUD {
     ctx.fillStyle = col;
     ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('F' + flapPos, cx + 12, cy);
+    ctx.fillText(flapLabel, cx + 12, cy);
 
     ctx.restore();
   }
