@@ -100,50 +100,58 @@ export class SceneManager {
     };
 
     // --- Trees ---
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5C3A1E });
-    const foliageMats = [0x2D6A2D, 0x357B35, 0x286228, 0x3E7A3E]
+    const trunkMat     = new THREE.MeshLambertMaterial({ color: 0x5C3A1E });
+    const coniferMats  = [0x2D6A2D, 0x286228, 0x255A22, 0x2F6030]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+    const deciduousMats= [0x4A8030, 0x5A9035, 0x3D7828, 0x6A9840]
       .map(c => new THREE.MeshLambertMaterial({ color: c }));
 
-    for (let i = 0; i < 220; i++) {
-      const { x, z } = place(2800, 50000);
-      const h = rng(25, 65);
+    for (let i = 0; i < 500; i++) {
+      const { x, z } = place(2800, 52000);
+      const h         = rng(22, 70);
+      const deciduous = Math.random() < 0.40;
 
       const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(2, 4, h * 0.45, 5),
+        new THREE.CylinderGeometry(1.8, 3.5, h * 0.45, 5),
         trunkMat
       );
       trunk.position.set(x, h * 0.22, z);
 
-      const foliage = new THREE.Mesh(
-        new THREE.ConeGeometry(h * 0.32, h * 0.72, 6),
-        foliageMats[i % foliageMats.length]
-      );
-      foliage.position.set(x, h * 0.72, z);
+      const foliage = deciduous
+        ? new THREE.Mesh(
+            new THREE.SphereGeometry(h * 0.30, 7, 5),
+            deciduousMats[i % deciduousMats.length]
+          )
+        : new THREE.Mesh(
+            new THREE.ConeGeometry(h * 0.30, h * 0.70, 6),
+            coniferMats[i % coniferMats.length]
+          );
+      foliage.position.set(x, deciduous ? h * 0.78 : h * 0.70, z);
 
       this._sceneryGroup.add(trunk, foliage);
     }
 
     // --- Houses ---
-    const wallCols = [0xD4C4A8, 0xC8B898, 0xDDD0B0, 0xBFBFA8];
-    const roofCols = [0x8B3A2F, 0x9B4535, 0x7A3025, 0xA05040];
+    const wallMats = [0xD4C4A8, 0xC8B898, 0xDDD0B0, 0xBFBFA8, 0xC4B8A0, 0xD8CEB8]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
+    const roofMats = [0x8B3A2F, 0x9B4535, 0x7A3025, 0xA05040, 0x6A3020, 0x703828]
+      .map(c => new THREE.MeshLambertMaterial({ color: c }));
 
-    for (let i = 0; i < 30; i++) {
-      const { x: bx, z: bz } = place(3500, 42000);
-      const count = Math.floor(rng(1, 4));
+    for (let i = 0; i < 80; i++) {
+      const { x: bx, z: bz } = place(3500, 52000);
+      const count = Math.floor(rng(1, 5));
       for (let j = 0; j < count; j++) {
-        const ox = bx + rng(-250, 250);
-        const oz = bz + rng(-250, 250);
-        const w = rng(55, 110), d = rng(45, 85), h = rng(22, 42);
+        const ox = bx + rng(-300, 300);
+        const oz = bz + rng(-300, 300);
+        const w  = rng(50, 120), d = rng(40, 90), h = rng(20, 44);
+        const mi = (i * 4 + j) % wallMats.length;
 
-        const body = new THREE.Mesh(
-          new THREE.BoxGeometry(w, h, d),
-          new THREE.MeshLambertMaterial({ color: wallCols[(i + j) % wallCols.length] })
-        );
+        const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[mi]);
         body.position.set(ox, h / 2, oz);
 
         const roof = new THREE.Mesh(
           new THREE.CylinderGeometry(0, Math.max(w, d) * 0.62, h * 0.55, 4),
-          new THREE.MeshLambertMaterial({ color: roofCols[(i + j) % roofCols.length] })
+          roofMats[mi]
         );
         roof.position.set(ox, h + h * 0.27, oz);
         roof.rotation.y = Math.PI / 4;

@@ -183,9 +183,9 @@ export class TerrainRenderer {
         if (flatWeight > 0) {
           // category drives colour type: low=lush, mid=lighter, high=dry/crop
           const category = n1 * 0.55 + n3 * 0.45;
-          if (category > 0.38) {
-            const t = Math.min(1, (category - 0.38) / 0.32) * flatWeight;
-            c.lerp(category > 0.70 ? _dryCol : _midGreen, t * 0.75);
+          if (category > 0.30) {
+            const t = Math.min(1, (category - 0.30) / 0.35) * flatWeight;
+            c.lerp(category > 0.65 ? _dryCol : _midGreen, t * 0.80);
           }
         }
 
