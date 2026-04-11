@@ -81,11 +81,13 @@ export class AirportRenderer {
     surf.position.set(rwy.offsetX, elev + 1.75, rwy.offsetZ);
     this._group.add(surf);
 
-    // Centerline dashes
+    // Centerline dashes — skip within 300 ft of each threshold (threshold marking zone)
     const dashMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
     const nDashes = Math.floor(rwy.length / 120);
+    const halfLen = rwy.length / 2;
     for (let i = 1; i < nDashes; i += 2) {
-      const t    = -rwy.length / 2 + (i + 0.5) * (rwy.length / nDashes);
+      const t = -halfLen + (i + 0.5) * (rwy.length / nDashes);
+      if (Math.abs(t) > halfLen - 300) continue;
       const dash = new THREE.Mesh(new THREE.BoxGeometry(55, 0.1, 1.5), dashMat);
       dash.rotation.y = rotY;
       dash.position.set(rwy.offsetX + hv.x * t, elev + 2.2, rwy.offsetZ + hv.z * t);
