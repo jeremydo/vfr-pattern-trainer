@@ -358,38 +358,80 @@ export class HUD {
   }
 
   // ── Top info bar ─────────────────────────────────────────────────
+  // Layout (left → right):
+  //  [phase text] [gear icon] [flap icon] [TURBO badge?] [guide/dist]
   _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo) {
     ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(SX, 0, SW, 22);
 
+    // Phase label
     const pc={CRUISE:C.cyan,APPROACH:C.yellow,DOWNWIND:C.green,
               BASE:C.orange,FINAL:'#FF6644',FLARE:C.white,LANDED:C.green};
     ctx.fillStyle=pc[checker.phase]||C.white;
     ctx.font='bold 11px monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
     ctx.fillText(checker.phase, SX+6, 11);
 
-    const cx = SX + SW/2;
-    const gearCol=aircraft.data.gear==='fixed'?C.gray:aircraft.gearDown?C.green:C.red;
-    ctx.fillStyle=gearCol; ctx.textAlign='center';
-    ctx.fillText(aircraft.data.gear==='fixed'?'FXD':'GEAR·'+(aircraft.gearDown?'DN':'UP'), cx-30, 11);
-    ctx.fillStyle=C.white;
-    ctx.fillText('F:'+aircraft.flapLabel, cx+30, 11);
+    // Gear icon (~38% from left)
+    const gearCol = aircraft.data.gear==='fixed' ? C.gray
+                  : aircraft.gearDown ? C.green : C.red;
+    this._drawGearIcon(ctx, SX + SW*0.38, 11, gearCol,
+                       aircraft.data.gear==='fixed', aircraft.gearDown);
+
+    // Flap icon (~52% from left)
+    const flapFrac = aircraft.data.flaps.length > 1
+      ? aircraft.flaps / (aircraft.data.flaps.length - 1) : 0;
+    this._drawFlapIcon(ctx, SX + SW*0.52, 11, flapFrac);
+
+    // TURBO badge (~64%) — only when active
     if (turbo) {
-      ctx.fillStyle='rgba(255,120,0,0.25)'; ctx.fillRect(cx-18, 2, 36, 18);
-      ctx.fillStyle=C.orange; ctx.textAlign='center';
-      ctx.fillText('TURBO', cx, 11);
+      const tx = SX + SW*0.645;
+      ctx.fillStyle='rgba(255,120,0,0.22)'; ctx.fillRect(tx-20, 2, 40, 18);
+      ctx.fillStyle=C.orange; ctx.font='bold 11px monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('TURBO', tx, 11);
     }
 
+    // Distance / GUIDE (right)
     const dist=Math.sqrt(aircraft.position.x**2+aircraft.position.z**2);
+    ctx.font='bold 11px monospace';
     if (guideVisible) {
-      // GUIDE badge replaces distance readout
-      ctx.fillStyle='rgba(0,229,255,0.18)';
-      ctx.fillRect(SX+SW-48, 2, 42, 18);
+      ctx.fillStyle='rgba(0,229,255,0.18)'; ctx.fillRect(SX+SW-50,2,44,18);
       ctx.fillStyle=C.cyan; ctx.textAlign='center';
-      ctx.fillText('GUIDE', SX+SW-27, 11);
+      ctx.fillText('GUIDE', SX+SW-28, 11);
     } else {
       ctx.fillStyle=C.white; ctx.textAlign='right';
       ctx.fillText((dist/6076.12).toFixed(1)+' nm', SX+SW-6, 11);
     }
+  }
+
+  // Tricycle gear: 3 circles (nose top, mains bottom-left/right).
+  // Filled = down or fixed.  Outline only = retracted.
+  _drawGearIcon(ctx, cx, cy, color, isFixed, isDown) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+    const solid = isFixed || isDown;
+    const wheel = (x, y, r) => {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+      if (solid) ctx.fill(); else ctx.stroke();
+    };
+    wheel(cx,      cy - 4, 2.5);   // nose (small, top-centre)
+    wheel(cx - 7,  cy + 4, 3);     // left main
+    wheel(cx + 7,  cy + 4, 3);     // right main
+    ctx.restore();
+  }
+
+  // Wing chord + trailing-edge flap deflection.
+  // flapFrac 0 = up (inline with chord), 1 = full down (~42°).
+  _drawFlapIcon(ctx, cx, cy, flapFrac) {
+    ctx.save();
+    ctx.strokeStyle = flapFrac > 0.5 ? C.orange : C.white;
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    const angle = flapFrac * 42 * Math.PI / 180;
+    // Wing chord (trailing edge at cx)
+    ctx.beginPath(); ctx.moveTo(cx - 9, cy); ctx.lineTo(cx, cy); ctx.stroke();
+    // Flap (from hinge, deflecting down-right)
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle)*7, cy + Math.sin(angle)*7); ctx.stroke();
+    ctx.restore();
   }
 
   // ── Guidance + warnings (float below strip) ──────────────────────
