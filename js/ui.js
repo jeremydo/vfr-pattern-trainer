@@ -204,6 +204,22 @@ export class UI {
   }
 
   renderDebrief(result) {
+    if (result.crashed) {
+      document.getElementById('screen-debrief').innerHTML = `
+        <div class="menu-panel wide">
+          <h2>Flight Debrief</h2>
+          <div class="debrief-grade grade-F" style="font-size:3rem">✈︎</div>
+          <div class="debrief-score" style="color:#FF4444;font-size:1.6rem">CRASHED</div>
+          <p style="text-align:center;color:#bbb;margin:16px 0">You flew into terrain.</p>
+          <div class="form-actions">
+            <button class="btn-sec"     id="db-setup">Change Setup</button>
+            <button class="btn-primary" id="db-retry">Fly Again</button>
+          </div>
+        </div>`;
+      document.getElementById('db-setup').onclick = () => { this.renderSetup();    this.state.setScreen(SCREENS.SETUP); };
+      document.getElementById('db-retry').onclick = () => { this.renderBriefing(); this.state.setScreen(SCREENS.BRIEFING); };
+      return;
+    }
     const { score, grade, breakdown: bd, touchdownMetrics: m } = result;
     const bar = (v, max) => `<div class="score-bar"><div class="score-fill" style="width:${Math.round(v/max*100)}%"></div></div>`;
 

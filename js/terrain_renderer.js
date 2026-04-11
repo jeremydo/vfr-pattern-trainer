@@ -128,6 +128,11 @@ export class TerrainRenderer {
       }
     }
 
+    // Store for runtime elevation sampling (crash detection etc.)
+    this._elevations = elevations;
+    this._grid       = grid;
+    this._radiusFt   = radiusFt;
+
     const group = new THREE.Group();
 
     // ── Heightmap mesh ───────────────────────────────────────────────────────
@@ -270,6 +275,15 @@ export class TerrainRenderer {
 
     this._scene.add(group);
     this._group = group;
+  }
+
+  // Returns the corrected terrain elevation (post-flatten, post-skirt) at world (wx, wz).
+  sampleElevation(wx, wz) {
+    if (!this._elevations) return 0;
+    const segs = this._grid - 1;
+    const j = Math.max(0, Math.min(segs, Math.round((wx + this._radiusFt) / (2 * this._radiusFt) * segs)));
+    const i = Math.max(0, Math.min(segs, Math.round((wz + this._radiusFt) / (2 * this._radiusFt) * segs)));
+    return this._elevations[i * this._grid + j] ?? 0;
   }
 
   dispose() {
