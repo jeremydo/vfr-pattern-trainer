@@ -36,6 +36,18 @@ function hash(ix, iy) {
 
 function smoothstep(t) { return t * t * (3 - 2 * t); }
 
+// Bilinearly-interpolated 2D value noise — gives smooth, non-grid organic patches
+function smoothNoise2D(x, z, scale) {
+  const fx = x / scale, fz = z / scale;
+  const ix = Math.floor(fx), iz = Math.floor(fz);
+  const tx = fx - ix, tz = fz - iz;
+  const sx = smoothstep(tx), sz = smoothstep(tz);
+  return hash(ix,   iz  ) * (1-sx) * (1-sz) +
+         hash(ix+1, iz  ) *    sx  * (1-sz) +
+         hash(ix,   iz+1) * (1-sx) *    sz  +
+         hash(ix+1, iz+1) *    sx  *    sz;
+}
+
 function elevColor(colorElevFt, airportElevFt, palette) {
   if (colorElevFt < 0)     return _col.setHex(0x1E6E8E).clone();
   if (colorElevFt > 11500) return _col.setHex(0xEEEEE8).clone();
@@ -109,8 +121,9 @@ export class TerrainRenderer {
     const geo = new THREE.PlaneGeometry(side, side, segs, segs);
     geo.rotateX(-Math.PI / 2);
 
-    const pos    = geo.attributes.position;
-    const colBuf = new Float32Array(pos.count * 3);
+    const pos      = geo.attributes.position;
+    const colBuf   = new Float32Array(pos.count * 3);
+    const cellSize = side / segs;
 
     for (let iy = 0; iy < grid; iy++) {
       for (let ix = 0; ix < grid; ix++) {
@@ -118,18 +131,38 @@ export class TerrainRenderer {
         const elev = elevations[vi] ?? airport.elevation;
         pos.setY(vi, elev);
 
-        // Noise proportional to how far above airport level this vertex is.
-        // Jitter the elevation used for colour lookup so the colour bands have
-        // ragged, natural edges — this makes individual flat-shaded faces visible
-        // and gives a sense of the terrain's undulations.
+        const wx = radiusFt * (-1 + 2 * ix / segs);
+        const wz = radiusFt * (-1 + 2 * iy / segs);
         const aboveAirport = Math.max(0, elev - airport.elevation);
-        const noiseRange   = Math.min(600, aboveAirport * 0.12); // up to ±600 ft jitter in peaks
-        const colorElev    = elev + (hash(ix, iy) - 0.5) * 2 * noiseRange;
 
+        // ── Smooth organic noise (two scales, non-grid) ──────────────────────
+        // Offsets on n2 break any accidental alignment with the terrain mesh.
+        const n1 = smoothNoise2D(wx,        wz,        6800);
+        const n2 = smoothNoise2D(wx + 3317, wz + 1759, 1900);
+        const patchNoise = n1 * 0.55 + n2 * 0.45;  // 0..1
+
+        // ── Slope-based hillshade baked into vertex colour ───────────────────
+        // Light from NW at ~45° elevation: lx=-0.577, ly=0.577, lz=-0.577
+        const dex = (elevations[iy * grid + Math.min(ix+1, segs)] -
+                     elevations[iy * grid + Math.max(ix-1, 0)]) / (cellSize * 2);
+        const dez = (elevations[Math.min(iy+1, segs) * grid + ix] -
+                     elevations[Math.max(iy-1, 0)   * grid + ix]) / (cellSize * 2);
+        const nLen = Math.sqrt(dex*dex + 1 + dez*dez);
+        const dot  = (0.577*dex + 0.577 + 0.577*dez) / nLen;
+        // Map: flat face (dot≈0.577) → 0.85, sunlit ridge → ~1.35, shadowed valley → ~0.35
+        const hillshade = Math.max(0.35, Math.min(1.4, 0.85 + (dot - 0.577) * 1.6));
+
+        // ── Colour-band elevation jitter (smooth, not per-vertex stipple) ────
+        const noiseRange = 350 + Math.min(900, aboveAirport * 0.18);
+        const colorElev  = elev + (patchNoise - 0.5) * 2 * noiseRange;
         const c = elevColor(colorElev, airport.elevation, biome);
 
-        // Additional brightness scatter: ±10% brightness in mountains
-        const brightness = 1 + (hash(ix + 99, iy + 37) - 0.5) * 0.2 * Math.min(1, aboveAirport / 3000);
+        // ── Final brightness: organic patches on flat, hillshade on hills ────
+        const hillWeight = Math.min(1, aboveAirport / 2500);
+        const flatBright = 0.82 + patchNoise * 0.36;              // flat: 82–118%, visible patches
+        const hillBright = hillshade * (0.85 + patchNoise * 0.30); // hills: shadowed with texture
+        const brightness = flatBright * (1 - hillWeight) + hillBright * hillWeight;
+
         colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * brightness));
         colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * brightness));
         colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * brightness));
