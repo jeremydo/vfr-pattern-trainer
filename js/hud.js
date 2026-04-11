@@ -37,7 +37,7 @@ export class HUD {
   show() { this._init(); this._resize(); this._cvs.style.display = 'block'; }
   hide() { if (this._cvs) this._cvs.style.display = 'none'; }
 
-  update(aircraft, appState, checker, scenario, guideVisible = false) {
+  update(aircraft, appState, checker, scenario, guideVisible = false, turbo = false) {
     if (!this._cvs || this._cvs.style.display === 'none') return;
     this._resize();
     const ctx = this._ctx, W = this._W, H = this._H;
@@ -67,7 +67,7 @@ export class HUD {
     this._vsi(ctx,        aiX+aiW+tapeW,   0,   vsiW,   SH,   aircraft);
     this._aiOverlay(ctx,  aiX,             0,   aiW,    aiH,  aircraft);
     this._hdgTape(ctx,    aiX,             aiH, aiW,    hdgH, aircraft, scenario, checker);
-    this._topBar(ctx,     SX, SW,          SH,  checker, aircraft, guideVisible);
+    this._topBar(ctx,     SX, SW,          SH,  checker, aircraft, guideVisible, turbo);
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
@@ -358,7 +358,7 @@ export class HUD {
   }
 
   // ── Top info bar ─────────────────────────────────────────────────
-  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible) {
+  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo) {
     ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(SX, 0, SW, 22);
 
     const pc={CRUISE:C.cyan,APPROACH:C.yellow,DOWNWIND:C.green,
@@ -373,6 +373,11 @@ export class HUD {
     ctx.fillText(aircraft.data.gear==='fixed'?'FXD':'GEAR·'+(aircraft.gearDown?'DN':'UP'), cx-30, 11);
     ctx.fillStyle=C.white;
     ctx.fillText('F:'+aircraft.flapLabel, cx+30, 11);
+    if (turbo) {
+      ctx.fillStyle='rgba(255,120,0,0.25)'; ctx.fillRect(cx-18, 2, 36, 18);
+      ctx.fillStyle=C.orange; ctx.textAlign='center';
+      ctx.fillText('TURBO', cx, 11);
+    }
 
     const dist=Math.sqrt(aircraft.position.x**2+aircraft.position.z**2);
     if (guideVisible) {

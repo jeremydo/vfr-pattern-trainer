@@ -6,6 +6,7 @@
 // Gear toggle    : G
 // Brakes         : B
 // Pause          : P or Escape
+// Turbo (cheat)  : X — toggles 1000 kt speed cap
 
 export class Controls {
   constructor() {
@@ -22,6 +23,7 @@ export class Controls {
     this.pause       = false;
     this.braking     = false;
     this.guideToggle = false;
+    this.turbo       = false;
 
     window.addEventListener('keydown', e => {
       if (!this._keys.has(e.code)) this._justPressed.add(e.code);
@@ -51,6 +53,7 @@ export class Controls {
     this.flapsUp    = this._justPressed.has('KeyV');
     this.pause       = this._justPressed.has('Escape') || this._justPressed.has('KeyP');
     this.guideToggle = this._justPressed.has('KeyT');
+    if (this._justPressed.has('KeyX')) this.turbo = !this.turbo;
 
     this._justPressed.clear();
   }

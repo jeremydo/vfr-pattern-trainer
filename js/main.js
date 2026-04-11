@@ -147,7 +147,7 @@ function _tick(dt) {
   const { glidepath } = checker.update(ac, apt, rwy, end, sc);
   if (glidepath > 0) airport.updatePAPI(end.id, glidepath);
 
-  hud.update(ac, state, checker, sc, guideVisible);
+  hud.update(ac, state, checker, sc, guideVisible, ctrl.turbo);
   state.phase = checker.phase;
 
   if (checker.phase === PHASES.LANDED) {
