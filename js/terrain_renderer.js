@@ -112,6 +112,15 @@ export class TerrainRenderer {
           const s = smoothstep(t);
           elevations[vi] = airport.elevation * (1 - s) + elevations[vi] * s;
         }
+
+        // Outer edge skirt: blend elevation to 0 over the outermost 12% of the
+        // tile so the mesh tucks into the flat ground plane instead of forming
+        // visible floating walls at the tile boundary.
+        const distFrac = dist / radiusFt;
+        if (distFrac > 0.88) {
+          const s = smoothstep((distFrac - 0.88) / 0.12);
+          elevations[vi] *= (1 - s);
+        }
       }
     }
 
@@ -136,10 +145,11 @@ export class TerrainRenderer {
         const aboveAirport = Math.max(0, elev - airport.elevation);
 
         // ── Smooth organic noise (three scales, non-grid) ────────────────────
+        // Cell size ~8300 ft, so all scales must be >> 8300 to avoid aliasing.
         // Offsets break accidental alignment with the terrain mesh grid.
-        const n1 = smoothNoise2D(wx,        wz,        6800);  // large sweeps
-        const n2 = smoothNoise2D(wx + 3317, wz + 1759, 1900);  // field-scale patches
-        const n3 = smoothNoise2D(wx + 6100, wz + 2983,  520);  // fine close-up detail
+        const n1 = smoothNoise2D(wx,         wz,         52000);  // large regional sweeps
+        const n2 = smoothNoise2D(wx + 31700, wz + 17590, 22000);  // medium patches
+        const n3 = smoothNoise2D(wx + 61000, wz + 29830, 17000);  // fine patches (still > 2×cell)
         const patchNoise = n1 * 0.40 + n2 * 0.35 + n3 * 0.25;  // 0..1
 
         // ── Slope-based hillshade baked into vertex colour ───────────────────
