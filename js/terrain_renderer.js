@@ -135,11 +135,12 @@ export class TerrainRenderer {
         const wz = radiusFt * (-1 + 2 * iy / segs);
         const aboveAirport = Math.max(0, elev - airport.elevation);
 
-        // ── Smooth organic noise (two scales, non-grid) ──────────────────────
-        // Offsets on n2 break any accidental alignment with the terrain mesh.
-        const n1 = smoothNoise2D(wx,        wz,        6800);
-        const n2 = smoothNoise2D(wx + 3317, wz + 1759, 1900);
-        const patchNoise = n1 * 0.55 + n2 * 0.45;  // 0..1
+        // ── Smooth organic noise (three scales, non-grid) ────────────────────
+        // Offsets break accidental alignment with the terrain mesh grid.
+        const n1 = smoothNoise2D(wx,        wz,        6800);  // large sweeps
+        const n2 = smoothNoise2D(wx + 3317, wz + 1759, 1900);  // field-scale patches
+        const n3 = smoothNoise2D(wx + 6100, wz + 2983,  520);  // fine close-up detail
+        const patchNoise = n1 * 0.40 + n2 * 0.35 + n3 * 0.25;  // 0..1
 
         // ── Slope-based hillshade baked into vertex colour ───────────────────
         // Light from NW at ~45° elevation: lx=-0.577, ly=0.577, lz=-0.577
@@ -159,13 +160,19 @@ export class TerrainRenderer {
 
         // ── Final brightness: organic patches on flat, hillshade on hills ────
         const hillWeight = Math.min(1, aboveAirport / 2500);
-        const flatBright = 0.82 + patchNoise * 0.36;              // flat: 82–118%, visible patches
+        const flatBright = 0.68 + patchNoise * 0.64;              // flat: 68–132%, strong patches
         const hillBright = hillshade * (0.85 + patchNoise * 0.30); // hills: shadowed with texture
         const brightness = flatBright * (1 - hillWeight) + hillBright * hillWeight;
 
-        colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * brightness));
-        colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * brightness));
-        colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * brightness));
+        // Subtle warm/cool hue tint on flat land — breaks up uniform green
+        const hueTint   = (n2 - 0.5) * (1 - hillWeight);  // fades out in hills
+        const rMul = brightness * (1 + hueTint * 0.18);
+        const gMul = brightness * (1 - Math.abs(hueTint) * 0.06);
+        const bMul = brightness * (1 - hueTint * 0.14);
+
+        colBuf[vi * 3]     = Math.max(0, Math.min(1, c.r * rMul));
+        colBuf[vi * 3 + 1] = Math.max(0, Math.min(1, c.g * gMul));
+        colBuf[vi * 3 + 2] = Math.max(0, Math.min(1, c.b * bMul));
       }
     }
     pos.needsUpdate = true;
