@@ -181,6 +181,8 @@ export class SceneManager {
     this._terrain.build(airport, data);
   }
 
+  sampleTerrainElevation(wx, wz) { return this._terrain.sampleElevation(wx, wz); }
+
   buildClouds(scenario, airportElevation) {
     this._clouds.forEach(c => this.scene.remove(c));
     this._clouds = [];

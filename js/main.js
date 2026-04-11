@@ -144,6 +144,14 @@ function _tick(dt) {
 
   ac.update(dt, ctrl, sc, apt.elevation);
 
+  // Crash detection: hit terrain that isn't the runway surface.
+  // onGround is only set true when position.y <= airportElevation (valid landing zone).
+  // Turbo is a debug cheat — skip crash detection so mountains can be flown through.
+  if (!ctrl.turbo && !ac.onGround) {
+    const terrainElev = scene.sampleTerrainElevation(ac.position.x, ac.position.z);
+    if (ac.position.y < terrainElev - 30) { _crashFlight(); return; }
+  }
+
   const { glidepath } = checker.update(ac, apt, rwy, end, sc);
   if (glidepath > 0) airport.updatePAPI(end.id, glidepath);
 
@@ -162,6 +170,16 @@ function _endFlight() {
   const result = checker.score(ac);
   state.score  = result;
   state.recordFlight(result);
+  ui.renderDebrief(result);
+  state.setScreen(SCREENS.DEBRIEF);
+}
+
+function _crashFlight() {
+  hud.hide();
+  const result = { score: 0, grade: 'F', crashed: true,
+    breakdown: { gear:0, speed:0, altitude:0, zone:0, centerline:0, sinkRate:0 },
+    touchdownMetrics: null };
+  state.score = result;
   ui.renderDebrief(result);
   state.setScreen(SCREENS.DEBRIEF);
 }
