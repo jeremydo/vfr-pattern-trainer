@@ -160,8 +160,9 @@ export class TerrainRenderer {
         // Offsets break accidental alignment with the terrain mesh grid.
         const n1 = smoothNoise2D(wx,         wz,         52000);  // large regional sweeps
         const n2 = smoothNoise2D(wx + 31700, wz + 17590, 22000);  // medium patches
-        const n3 = smoothNoise2D(wx + 61000, wz + 29830, 17000);  // fine patches (still > 2×cell)
-        const patchNoise = n1 * 0.40 + n2 * 0.35 + n3 * 0.25;  // 0..1
+        const n3 = smoothNoise2D(wx + 61000, wz + 29830, 17000);  // fine patches
+        const n4 = smoothNoise2D(wx + 47300, wz + 53100,  9000);  // detail (safe for 128-grid cells)
+        const patchNoise = n1 * 0.30 + n2 * 0.28 + n3 * 0.24 + n4 * 0.18;  // 0..1
 
         // ── Slope-based hillshade baked into vertex colour ───────────────────
         // Light from NW at ~45° elevation: lx=-0.577, ly=0.577, lz=-0.577

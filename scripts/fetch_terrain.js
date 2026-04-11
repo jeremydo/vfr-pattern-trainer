@@ -25,7 +25,7 @@ const AIRPORTS = [
 ];
 
 const ZOOM     = 9;       // Terrarium tile zoom level
-const GRID     = 64;      // Output grid resolution (64×64 vertices)
+const GRID     = 128;     // Output grid resolution (128×128 vertices, ~4133 ft/cell)
 const RADIUS_M = 80000;   // 80 km ≈ 50 miles sampling radius
 const OUT_DIR  = path.join(__dirname, '..', 'js', 'data', 'terrain');
 

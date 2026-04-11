@@ -56,12 +56,13 @@ export class HUD {
     const hdgH   = 32;
     const aiH    = SH - hdgH;
     const aiR    = Math.floor(aiH / 2) - 3;          // circle radius
-    const aiW    = aiR * 2 + 10;                      // AI panel just wide enough for circle
-    const tapeW  = Math.max(54, Math.min(70, aiR * 0.80));  // proportional to circle
+    const aiW    = aiR * 2 + 16;                      // AI panel: circle + small side padding
+    const tapeW  = Math.max(58, Math.min(74, aiR * 0.90));  // proportional to circle
+    const gap    = 8;                                  // gap between tape and circle
     const vsiW   = 18;
-    const SW     = aiW + tapeW * 2 + vsiW;            // total strip width
+    const SW     = aiW + (tapeW + gap) * 2 + vsiW;   // total strip width
     const SX     = Math.round((W - SW) / 2);          // centred
-    const aiX    = SX + tapeW;
+    const aiX    = SX + tapeW + gap;
 
     // Draw strip panels
     this._speedTape(ctx,  SX,              0,   tapeW,  SH,   aircraft, vr);
