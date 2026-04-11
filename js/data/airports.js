@@ -10,14 +10,19 @@ export const AIRPORTS = [
     elevation: 5885, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '17L/35R', heading: 172, length: 10001, width: 100,
+        id: '17L/35R', heading: 170, length: 10001, width: 100,
         offsetX: 500, offsetZ: 0,
         ends: [{ id: '17L', pattern: 'L' }, { id: '35R', pattern: 'R' }]
       },
       {
-        id: '17R/35L', heading: 172, length: 7001, width: 75,
+        id: '17R/35L', heading: 170, length: 7001, width: 75,
         offsetX: -500, offsetZ: 0,
         ends: [{ id: '17R', pattern: 'R' }, { id: '35L', pattern: 'L' }]
+      },
+      {
+        id: '10/28', heading: 103, length: 4800, width: 75,
+        offsetX: 0, offsetZ: -2200,
+        ends: [{ id: '10', pattern: 'L' }, { id: '28', pattern: 'R' }]
       }
     ]
   },
@@ -44,14 +49,14 @@ export const AIRPORTS = [
     elevation: 802, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '16L/34R', heading: 163, length: 8001, width: 150,
+        id: '16R/34L', heading: 164, length: 8001, width: 150,
         offsetX: 600, offsetZ: 0,
-        ends: [{ id: '16L', pattern: 'R' }, { id: '34R', pattern: 'L' }]
+        ends: [{ id: '16R', pattern: 'R' }, { id: '34L', pattern: 'L' }]
       },
       {
-        id: '16R/34L', heading: 163, length: 4013, width: 75,
+        id: '16L/34R', heading: 164, length: 4013, width: 75,
         offsetX: -600, offsetZ: 0,
-        ends: [{ id: '16R', pattern: 'L' }, { id: '34L', pattern: 'R' }]
+        ends: [{ id: '16L', pattern: 'L' }, { id: '34R', pattern: 'R' }]
       }
     ]
   },
@@ -66,7 +71,7 @@ export const AIRPORTS = [
         ends: [{ id: '09', pattern: 'L' }, { id: '27', pattern: 'R' }]
       },
       {
-        id: '13/31', heading: 130, length: 2727, width: 100,
+        id: '13/31', heading: 136, length: 4000, width: 100,
         offsetX: 400, offsetZ: 600,
         ends: [{ id: '13', pattern: 'R' }, { id: '31', pattern: 'L' }]
       }
@@ -78,7 +83,7 @@ export const AIRPORTS = [
     elevation: 32, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '16/34', heading: 160, length: 5382, width: 200,
+        id: '16/34', heading: 157, length: 5382, width: 200,
         offsetX: 0, offsetZ: 0,
         ends: [{ id: '16', pattern: 'R' }, { id: '34', pattern: 'L' }]
       }
@@ -90,7 +95,7 @@ export const AIRPORTS = [
     elevation: 5, patternAGL: 800, turbinePatternAGL: 1000,
     runways: [
       {
-        id: '12/30', heading: 121, length: 2600, width: 75,
+        id: '12/30', heading: 123, length: 2621, width: 75,
         offsetX: 0, offsetZ: 0,
         ends: [{ id: '12', pattern: 'R' }, { id: '30', pattern: 'L' }]
       }
@@ -102,12 +107,12 @@ export const AIRPORTS = [
     elevation: 80, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '14/32', heading: 140, length: 6833, width: 150,
+        id: '14/32', heading: 146, length: 6833, width: 150,
         offsetX: 0, offsetZ: 0,
         ends: [{ id: '14', pattern: 'R' }, { id: '32', pattern: 'L' }]
       },
       {
-        id: '01/19', heading: 10, length: 5516, width: 150,
+        id: '01/19', heading: 13, length: 5517, width: 150,
         offsetX: -800, offsetZ: 200,
         ends: [{ id: '01', pattern: 'R' }, { id: '19', pattern: 'L' }]
       }
@@ -119,12 +124,12 @@ export const AIRPORTS = [
     elevation: 192, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '16L/34R', heading: 164, length: 6200, width: 100,
+        id: '16L/34R', heading: 161, length: 6200, width: 100,
         offsetX: 500, offsetZ: 0,
         ends: [{ id: '16L', pattern: 'R' }, { id: '34R', pattern: 'L' }]
       },
       {
-        id: '16R/34L', heading: 164, length: 3702, width: 100,
+        id: '16R/34L', heading: 161, length: 3715, width: 75,
         offsetX: -500, offsetZ: 0,
         ends: [{ id: '16R', pattern: 'L' }, { id: '34L', pattern: 'R' }]
       }
@@ -136,17 +141,17 @@ export const AIRPORTS = [
     elevation: 5673, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '12L/30R', heading: 122, length: 9000, width: 100,
+        id: '12L/30R', heading: 115, length: 9000, width: 100,
         offsetX: 600, offsetZ: 0,
         ends: [{ id: '12L', pattern: 'R' }, { id: '30R', pattern: 'L' }]
       },
       {
-        id: '12R/30L', heading: 122, length: 7002, width: 75,
+        id: '12R/30L', heading: 115, length: 7002, width: 75,
         offsetX: -600, offsetZ: 0,
         ends: [{ id: '12R', pattern: 'L' }, { id: '30L', pattern: 'R' }]
       },
       {
-        id: '03/21', heading: 32, length: 3600, width: 75,
+        id: '03/21', heading: 25, length: 3600, width: 75,
         offsetX: 0, offsetZ: -2000,
         ends: [{ id: '03', pattern: 'L' }, { id: '21', pattern: 'R' }]
       }
@@ -158,12 +163,12 @@ export const AIRPORTS = [
     elevation: 373, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '16R/34L', heading: 159, length: 8009, width: 150,
+        id: '16R/34L', heading: 164, length: 8009, width: 150,
         offsetX: -400, offsetZ: 0,
         ends: [{ id: '16R', pattern: 'L' }, { id: '34L', pattern: 'R' }]
       },
       {
-        id: '16L/34R', heading: 159, length: 6000, width: 150,
+        id: '16L/34R', heading: 164, length: 6000, width: 150,
         offsetX: 400, offsetZ: 0,
         ends: [{ id: '16L', pattern: 'R' }, { id: '34R', pattern: 'L' }]
       }
@@ -175,14 +180,14 @@ export const AIRPORTS = [
     elevation: 749, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '17L/35R', heading: 172, length: 9000, width: 150,
+        id: '18L/36R', heading: 179, length: 9000, width: 150,
         offsetX: 600, offsetZ: 0,
-        ends: [{ id: '17L', pattern: 'L' }, { id: '35R', pattern: 'R' }]
+        ends: [{ id: '18L', pattern: 'L' }, { id: '36R', pattern: 'R' }]
       },
       {
-        id: '17R/35L', heading: 172, length: 2277, width: 60,
+        id: '18R/36L', heading: 179, length: 4008, width: 100,
         offsetX: -600, offsetZ: 0,
-        ends: [{ id: '17R', pattern: 'R' }, { id: '35L', pattern: 'L' }]
+        ends: [{ id: '18R', pattern: 'R' }, { id: '36L', pattern: 'L' }]
       }
     ]
   },
@@ -192,12 +197,12 @@ export const AIRPORTS = [
     elevation: 133, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '13R/31L', heading: 130, length: 3100, width: 75,
+        id: '13R/31L', heading: 127, length: 3099, width: 75,
         offsetX: -260, offsetZ: 0,
         ends: [{ id: '13R', pattern: 'R' }, { id: '31L', pattern: 'L' }]
       },
       {
-        id: '13L/31R', heading: 130, length: 3101, width: 75,
+        id: '13L/31R', heading: 127, length: 3100, width: 75,
         offsetX: 260, offsetZ: 0,
         ends: [{ id: '13L', pattern: 'L' }, { id: '31R', pattern: 'R' }]
       }
@@ -209,12 +214,12 @@ export const AIRPORTS = [
     elevation: 62, patternAGL: 1000, turbinePatternAGL: 1500,
     runways: [
       {
-        id: '12R/30L', heading: 120, length: 11000, width: 200,
+        id: '12R/30L', heading: 126, length: 11000, width: 150,
         offsetX: 700, offsetZ: 0,
         ends: [{ id: '12R', pattern: 'R' }, { id: '30L', pattern: 'L' }]
       },
       {
-        id: '12L/30R', heading: 120, length: 11000, width: 150,
+        id: '12L/30R', heading: 126, length: 11000, width: 150,
         offsetX: -700, offsetZ: 0,
         ends: [{ id: '12L', pattern: 'L' }, { id: '30R', pattern: 'R' }]
       },
