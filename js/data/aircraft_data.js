@@ -25,6 +25,29 @@ export const AIRCRAFT = {
     wingHigh: true                     // high-wing aircraft
   },
 
+  C182T: {
+    id: 'C182T',
+    name: 'Cessna 182T Skylane',
+    type: 'piston',
+    gear: 'fixed',
+    flaps: [0, 10, 20, 30],
+    flapLabels: ['UP', '10°', '20°', '30°'],
+    vfe:  [null, 140, 110, 95],
+    vs0:  49,   vs1:  56,
+    vy:   80,   vno: 140,  vne: 175,
+    cruise: 145,
+    speeds: { downwind: 100, base: 90, final: 70 },
+    accelRate: 0.28,
+    pitchRate: 2.6,
+    rollRate:  3.2,
+    maxPitch:  15,
+    maxBank:   45,
+    flapDrag:  [0, 0.05, 0.13, 0.24],
+    gearDrag:  0,
+    color: { body: 0xF8F8F8, accent: 0x1A5B8C, gear: 0x444444 },
+    wingHigh: true
+  },
+
   SR22: {
     id: 'SR22',
     name: 'Cirrus SR22',
