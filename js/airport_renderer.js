@@ -209,6 +209,7 @@ export class AirportRenderer {
     const digits = (match ? match[1] : end.id).padStart(2, '0');
     const desig  = match ? match[2].toUpperCase() : '';
     const elements = desig ? [digits[0], digits[1], desig] : [digits[0], digits[1]];
+    console.log(`runway number: end=${end.id} digits=${digits} desig="${desig}" elements=${JSON.stringify(elements)}`);
 
     // Character height along runway; width per char derived from natural aspect ratio
     const charH = Math.min(rwy.width * 0.75, 90);
