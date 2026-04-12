@@ -48,6 +48,29 @@ export const AIRCRAFT = {
     wingHigh: true
   },
 
+  SlingTSi: {
+    id: 'SlingTSi',
+    name: 'Sling TSi',
+    type: 'piston',
+    gear: 'fixed',
+    flaps: [0, 8, 15, 22, 30],           // degrees per flap position
+    flapLabels: ['UP', 'F1', 'F2', 'F3', 'DN'],
+    vfe:  [null, 85, 85, 85, 85],         // Vfe same 85 kt for all extended positions
+    vs0:  51,   vs1:  57,
+    vy:   74,   vno: 135,  vne: 155,
+    cruise: 148,
+    speeds: { downwind: 95, base: 80, final: 70 },
+    accelRate: 0.32,
+    pitchRate: 2.8,
+    rollRate:  3.5,
+    maxPitch:  15,
+    maxBank:   45,
+    flapDrag:  [0, 0.04, 0.09, 0.15, 0.22],
+    gearDrag:  0,
+    color: { body: 0xF0F0F0, accent: 0xE05010, gear: 0x444444 },
+    wingHigh: false
+  },
+
   SR22: {
     id: 'SR22',
     name: 'Cirrus SR22',
