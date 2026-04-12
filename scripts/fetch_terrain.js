@@ -177,10 +177,25 @@ async function fetchFeatures(lat, lon) {
   const Rlon = R / Math.cos(lat * Math.PI / 180);
   const bbox = `${lat - R},${lon - Rlon},${lat + R},${lon + Rlon}`;
 
-  console.log('  Fetching OSM water...');
-  const waterData = await overpassQuery(
-    `[out:json][timeout:30];(way["natural"="water"](${bbox});way["landuse"="reservoir"](${bbox}););out geom;`
+  console.log('  Fetching OSM water (ways)...');
+  const waterWays = await overpassQuery(
+    `[out:json][timeout:30];(` +
+    `way["natural"="water"](${bbox});` +
+    `way["natural"="bay"](${bbox});` +
+    `way["natural"="wetland"](${bbox});` +
+    `way["landuse"="reservoir"](${bbox});` +
+    `);out geom;`
   );
+  console.log('  Fetching OSM water (relations)...');
+  const waterRels = await overpassQuery(
+    `[out:json][timeout:45];(` +
+    `relation["natural"="water"](${bbox});` +
+    `relation["natural"="bay"](${bbox});` +
+    `);out geom;`
+  );
+  const waterData = {
+    elements: [...(waterWays.elements || []), ...(waterRels.elements || [])]
+  };
 
   console.log('  Fetching OSM rivers...');
   const riverData = await overpassQuery(
@@ -207,20 +222,31 @@ function ll2ft(lat, lon, aLat, aLon) {
 // ── OSM feature processors ───────────────────────────────────────────────────
 
 function processWater(elements, aLat, aLon) {
-  // Keep only the 30 largest water bodies (by geometry point count as proxy for area).
-  // Skip anything with fewer than 10 geometry points (tiny ponds).
-  const candidates = elements
-    .filter(el => el.geometry?.length >= 10)
-    .sort((a, b) => b.geometry.length - a.geometry.length)
-    .slice(0, 30);
+  // Normalise: ways have el.geometry directly; relations expose geometry through
+  // their outer member ways.  Build a flat list of { geometry } objects.
+  const geoms = [];
+  for (const el of elements) {
+    if (el.type === 'relation') {
+      // Collect all outer-member geometries (a multipolygon bay can have many)
+      for (const m of (el.members || [])) {
+        if (m.role === 'outer' && m.geometry?.length >= 10) geoms.push(m.geometry);
+      }
+    } else if (el.geometry?.length >= 10) {
+      geoms.push(el.geometry);
+    }
+  }
+
+  // Keep the 30 largest by point count
+  geoms.sort((a, b) => b.length - a.length);
+  const candidates = geoms.slice(0, 30);
 
   const out = [];
-  for (const el of candidates) {
+  for (const geom of candidates) {
     const MAX_PTS = 24;
-    const step    = Math.max(1, Math.floor(el.geometry.length / MAX_PTS));
+    const step    = Math.max(1, Math.floor(geom.length / MAX_PTS));
     const coords  = [];
-    for (let k = 0; k < el.geometry.length; k += step) {
-      const g = el.geometry[k];
+    for (let k = 0; k < geom.length; k += step) {
+      const g = geom[k];
       const { x, z } = ll2ft(g.lat, g.lon, aLat, aLon);
       coords.push([x, z]);
     }
