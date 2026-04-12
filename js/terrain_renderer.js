@@ -194,7 +194,9 @@ export class TerrainRenderer {
             const wz = radiusFt * (-1 + 2 * iy / segs);
             if (pointInPolygon(wx, wz, poly.coords)) {
               const vi = iy * grid + ix;
-              elevations[vi] = Math.min(elevations[vi], wSurf - 5);
+              // Deep depression: makes the shoreline appear within ~30 ft of the
+              // polygon edge rather than thousands of feet inside it.
+              elevations[vi] = -500;
             }
           }
         }

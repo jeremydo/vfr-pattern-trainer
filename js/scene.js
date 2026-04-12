@@ -239,6 +239,7 @@ export class SceneManager {
       const wx = Math.cos(angle) * dist, wz = Math.sin(angle) * dist;
       if (Math.abs(wx) > lim || Math.abs(wz) > lim) continue;
       const elev = sampleE(wx, wz);
+      if (elev < 0)    continue;  // water area (terrain depressed to -500)
       if (elev > 7800) continue;  // no trees above snowline
 
       const deciduous = Math.random() < 0.35 && elev < 6000;
@@ -270,6 +271,7 @@ export class SceneManager {
       const bx = Math.cos(angle) * dist, bz = Math.sin(angle) * dist;
       if (Math.abs(bx) > lim || Math.abs(bz) > lim) continue;
       const baseElev = sampleE(bx, bz);
+      if (baseElev < 0)    continue;  // water area
       if (baseElev > 6200) continue;  // no houses on high terrain
 
       const count = Math.floor(rng(1, 5));

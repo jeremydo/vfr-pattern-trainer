@@ -50,12 +50,12 @@ export const AIRPORTS = [
     runways: [
       {
         id: '16R/34L', heading: 164, length: 8001, width: 150,
-        offsetX: 600, offsetZ: 0,
+        offsetX: -600, offsetZ: 0,
         ends: [{ id: '16R', pattern: 'R' }, { id: '34L', pattern: 'L' }]
       },
       {
         id: '16L/34R', heading: 164, length: 4013, width: 75,
-        offsetX: -600, offsetZ: 0,
+        offsetX: 600, offsetZ: 0,
         ends: [{ id: '16L', pattern: 'L' }, { id: '34R', pattern: 'R' }]
       }
     ]
@@ -227,12 +227,12 @@ export const AIRPORTS = [
     runways: [
       {
         id: '12R/30L', heading: 126, length: 11000, width: 150,
-        offsetX: 700, offsetZ: 0,
+        offsetX: -700, offsetZ: 0,
         ends: [{ id: '12R', pattern: 'R' }, { id: '30L', pattern: 'L' }]
       },
       {
         id: '12L/30R', heading: 126, length: 11000, width: 150,
-        offsetX: -700, offsetZ: 0,
+        offsetX: 700, offsetZ: 0,
         ends: [{ id: '12L', pattern: 'L' }, { id: '30R', pattern: 'R' }]
       },
     ]
