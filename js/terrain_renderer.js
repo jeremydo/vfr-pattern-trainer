@@ -1,5 +1,19 @@
 import * as THREE from 'three';
 
+// Ray-casting point-in-polygon test (2D, coords are [x, z] pairs)
+function pointInPolygon(px, pz, coords) {
+  let inside = false;
+  for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+    const xi = coords[i][0], zi = coords[i][1];
+    const xj = coords[j][0], zj = coords[j][1];
+    if (((zi > pz) !== (zj > pz)) &&
+        (px < (xj - xi) * (pz - zi) / (zj - zi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 // Elevation colour palettes per biome: [deep_valley, base, hills, high, peaks/snow]
 // Palettes: [deep_valley, base/plains, foothills, high_terrain, peaks/snow]
 const BIOMES = {
@@ -156,6 +170,33 @@ export class TerrainRenderer {
         if (distFrac > 0.88) {
           const s = smoothstep((distFrac - 0.88) / 0.12);
           elevations[vi] *= (1 - s);
+        }
+      }
+    }
+
+    // ── Depress terrain inside water polygons ────────────────────────────────
+    // For each water polygon, compute its surface elevation (same formula used
+    // when placing the mesh), then sink every terrain vertex that falls inside
+    // the polygon to just below that surface.  This makes the polygon boundary
+    // the visible shoreline rather than an elevation-contour intersection.
+    if (water && water.length) {
+      for (const poly of water) {
+        if (poly.coords.length < 3) continue;
+        const cx = poly.coords.reduce((s, c) => s + c[0], 0) / poly.coords.length;
+        const cz = poly.coords.reduce((s, c) => s + c[1], 0) / poly.coords.length;
+        const wSurf = Math.min(
+          sampleElev(cx, cz, data.elevations, grid, radiusFt) + correction + 2,
+          airport.elevation - 5
+        );
+        for (let iy = 0; iy < grid; iy++) {
+          for (let ix = 0; ix < grid; ix++) {
+            const wx = radiusFt * (-1 + 2 * ix / segs);
+            const wz = radiusFt * (-1 + 2 * iy / segs);
+            if (pointInPolygon(wx, wz, poly.coords)) {
+              const vi = iy * grid + ix;
+              elevations[vi] = Math.min(elevations[vi], wSurf - 5);
+            }
+          }
         }
       }
     }
