@@ -209,6 +209,28 @@ export const AIRPORTS = [
     ]
   },
   {
+    id: 'KSBA', name: 'Santa Barbara Municipal Airport', city: 'Santa Barbara, CA',
+    lat: 34.4262, lon: -119.8415,
+    elevation: 14, patternAGL: 1000, turbinePatternAGL: 1500,
+    runways: [
+      {
+        id: '7/25', heading: 75, length: 6052, width: 150,
+        offsetX: 0, offsetZ: 600,
+        ends: [{ id: '07', pattern: 'L' }, { id: '25', pattern: 'R' }]
+      },
+      {
+        id: '15R/33L', heading: 152, length: 4184, width: 100,
+        offsetX: -300, offsetZ: 0,
+        ends: [{ id: '15R', pattern: 'R' }, { id: '33L', pattern: 'L' }]
+      },
+      {
+        id: '15L/33R', heading: 152, length: 4180, width: 75,
+        offsetX: 300, offsetZ: 0,
+        ends: [{ id: '15L', pattern: 'L' }, { id: '33R', pattern: 'R' }]
+      }
+    ]
+  },
+  {
     id: 'KPAO', name: 'Palo Alto Airport', city: 'Palo Alto, CA',
     lat: 37.4611, lon: -122.1150,
     elevation: 7, patternAGL: 800, turbinePatternAGL: 1000,

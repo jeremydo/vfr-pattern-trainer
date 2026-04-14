@@ -24,6 +24,7 @@ const AIRPORTS = [
   { id: 'KGYI', lat: 33.7142, lon:  -96.6736 },
   { id: 'KRHV', lat: 37.3329, lon: -121.8194 },
   { id: 'KSJC', lat: 37.3626, lon: -121.9290 },
+  { id: 'KSBA', lat: 34.4262, lon: -119.8415 },
   { id: 'KPAO', lat: 37.4611, lon: -122.1150 },
 ];
 

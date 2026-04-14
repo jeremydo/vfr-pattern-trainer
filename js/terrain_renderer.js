@@ -28,7 +28,7 @@ const BIOMES = {
 
 const AIRPORT_BIOMES = {
   KAPA: 'arid_mountain', KBJC: 'arid_mountain',
-  KSNA: 'arid',          KVNY: 'arid',          KSQL: 'arid',
+  KSNA: 'arid',          KVNY: 'arid',          KSQL: 'arid',          KSBA: 'arid',
   KRHV: 'arid',          KSJC: 'arid',          KPAO: 'arid',
   KFXE: 'tropical',
   KRNT: 'temperate',     KFRG: 'temperate',     KHEF: 'temperate',
