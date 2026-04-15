@@ -72,81 +72,62 @@ function _makeDetailTex(side) {
   return tex;
 }
 
-// Generate a top-down city texture on an offscreen canvas.
-// `seed` is an integer that gives each town a unique but deterministic layout.
-function _makeCityTex(seed) {
-  const S      = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = S;
-  const ctx    = canvas.getContext('2d');
+// Build a town as actual 3D building geometry.
+// Produces a ground plane + a cluster of box buildings with density/height
+// falloff from the town centre and zone-based material palette.
+function _buildTown(fp, cx, cz, seed, y, group) {
+  // Ground: asphalt/urban base, 1 ft above terrain to avoid z-fighting
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x787270 });
+  const ground    = new THREE.Mesh(new THREE.PlaneGeometry(fp, fp), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(cx, y + 1, cz);
+  group.add(ground);
 
-  const BLOCKS = 8;
-  const bPx    = S / BLOCKS;   // pixels per block cell
-  const roadW  = 4;            // road width in pixels
+  // Deterministic LCG — all randomness driven by `seed`
+  let rng = ((seed * 1664525 + 1013904223) >>> 0);
+  const rnd = () => { rng = ((rng * 1664525 + 1013904223) >>> 0); return rng / 4294967296; };
 
-  // Asphalt road surface
-  ctx.fillStyle = '#BDB8AA';
-  ctx.fillRect(0, 0, S, S);
+  const half  = fp * 0.5;
+  const count = fp <= 3500 ? 95 : fp <= 8000 ? 300 : 620;
+  const hMax  = fp <= 3500 ? 55 : fp <= 8000 ? 160 : 340;  // tallest building ft
 
-  for (let row = 0; row < BLOCKS; row++) {
-    for (let col = 0; col < BLOCKS; col++) {
-      const bx = col * bPx + roadW * 0.5;
-      const bz = row * bPx + roadW * 0.5;
-      const bw = bPx - roadW;
-      const bh = bPx - roadW;
+  // Material palette: warm suburban → neutral commercial → cool glass downtown
+  const pal = [
+    new THREE.MeshLambertMaterial({ color: 0x9E8E7C }),  // tan brick
+    new THREE.MeshLambertMaterial({ color: 0x8A7C70 }),  // dark brick
+    new THREE.MeshLambertMaterial({ color: 0xA89A8A }),  // light stucco
+    new THREE.MeshLambertMaterial({ color: 0x8C8480 }),  // warm grey
+    new THREE.MeshLambertMaterial({ color: 0x878790 }),  // neutral grey
+    new THREE.MeshLambertMaterial({ color: 0x909099 }),  // light cool grey
+    new THREE.MeshLambertMaterial({ color: 0x7C7E8C }),  // blue-grey
+    new THREE.MeshLambertMaterial({ color: 0x70788A }),  // glass blue
+    new THREE.MeshLambertMaterial({ color: 0x808490 }),  // steel grey
+    new THREE.MeshLambertMaterial({ color: 0x666A78 }),  // dark glass
+  ];
 
-      // Deterministic block type — no Math.random()
-      const h = ((row * 17 + col * 11 + (row ^ col) * 3 + seed * 7) % 31 + 31) % 31;
+  for (let i = 0; i < count; i++) {
+    const bx = cx + (rnd() - 0.5) * fp * 0.94;
+    const bz = cz + (rnd() - 0.5) * fp * 0.94;
+    const dr = Math.sqrt((bx - cx) ** 2 + (bz - cz) ** 2) / half;  // 0=centre, 1=edge
 
-      if (h % 10 === 0) {
-        // ~10 % park / open space — muted green
-        ctx.fillStyle = `hsl(${106 + (h % 14)}, ${28 + h % 12}%, ${28 + h % 14}%)`;
-        ctx.fillRect(bx, bz, bw, bh);
-      } else if (h % 5 === 0) {
-        // ~10 % commercial / industrial — lighter warm grey
-        ctx.fillStyle = `hsl(35, ${6 + h % 7}%, ${52 + h % 11}%)`;
-        ctx.fillRect(bx, bz, bw, bh);
-        // Rooftop outlines
-        ctx.strokeStyle = 'rgba(80,75,65,0.4)';
-        ctx.lineWidth = 1;
-        const pad = 2;
-        ctx.strokeRect(bx + pad, bz + pad, bw - pad * 2, bh - pad * 2);
-      } else {
-        // Residential — mid warm grey with parcel subdivisions
-        ctx.fillStyle = `hsl(30, ${7 + h % 8}%, ${40 + h % 13}%)`;
-        ctx.fillRect(bx, bz, bw, bh);
+    // Probability of a building here: dense at centre, tapering to sparse at edge
+    if (rnd() > Math.max(0.07, 1.22 - dr * 1.40)) continue;
 
-        // Draw individual parcel lines (buildings)
-        ctx.strokeStyle = 'rgba(160,152,135,0.55)';
-        ctx.lineWidth = 1;
-        const hDivs = 2 + (h % 3);   // 2–4 rows of houses
-        const vDivs = 1 + (h % 2);   // 2–3 columns
-        for (let hi = 1; hi < hDivs; hi++) {
-          const py = bz + (bh * hi) / hDivs;
-          ctx.beginPath(); ctx.moveTo(bx, py); ctx.lineTo(bx + bw, py); ctx.stroke();
-        }
-        for (let vi = 1; vi < vDivs; vi++) {
-          const px = bx + (bw * vi) / vDivs;
-          ctx.beginPath(); ctx.moveTo(px, bz); ctx.lineTo(px, bz + bh); ctx.stroke();
-        }
-      }
-    }
+    const bw = 50  + rnd() * 170;
+    const bd = 50  + rnd() * 160;
+    // Taller buildings near centre; minimum ~12 ft even at edge
+    const hScale = Math.max(0.04, 1 - dr * 1.45);
+    const bh = 12 + rnd() * hMax * hScale + rnd() * 18;
+
+    // Zone → palette band
+    const mIdx = dr < 0.25 ? 7 + Math.floor(rnd() * 3) :
+                 dr < 0.52 ? 4 + Math.floor(rnd() * 3) :
+                             Math.floor(rnd() * 4);
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), pal[mIdx]);
+    mesh.position.set(bx, y + bh / 2, bz);
+    group.add(mesh);
   }
-
-  // Faint dashed centreline on each road
-  ctx.strokeStyle = 'rgba(200,178,60,0.35)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 5]);
-  for (let i = 1; i < BLOCKS; i++) {
-    const p = i * bPx;
-    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
-  }
-  ctx.setLineDash([]);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
 }
 
 // Deterministic hash 0..1 from grid indices — gives each vertex a stable random value
@@ -470,31 +451,15 @@ export class TerrainRenderer {
 
     // ── Towns ─────────────────────────────────────────────────────────────────
     const footprints = [3000, 7000, 15000];
-    const sideMat    = new THREE.MeshLambertMaterial({ color: 0xA8A49A });
     for (const town of towns) {
       const fp   = footprints[Math.min(town.size - 1, 2)];
       const dist = Math.sqrt(town.x * town.x + town.z * town.z);
-      // Skip if the nearest edge of the slab would fall inside the flat airport zone —
-      // prevents city overlapping runways (e.g. Centennial at KAPA).
+      // Skip if the nearest edge would fall inside the flat airport zone
       if (dist - fp / 2 < FLAT_INNER_FT) continue;
 
-      const slabH  = 15;
-      const y      = sampleElev(town.x, town.z, elevations, grid, radiusFt);
-
-      // Deterministic seed from position so each town gets a unique layout
-      const seed   = ((Math.abs(Math.round(town.x * 0.013 + town.z * 0.009))) % 47);
-
-      const cityTex = _makeCityTex(seed);
-      // Scale the texture so one "tile" ≈ 3000 ft → ~375 ft per city block
-      cityTex.repeat.set(fp / 3000, fp / 3000);
-      cityTex.needsUpdate = true;
-
-      const topMat = new THREE.MeshLambertMaterial({ map: cityTex });
-      const geo    = new THREE.BoxGeometry(fp, slabH, fp);
-      // BoxGeometry material order: +X, -X, +Y(top), -Y(bottom), +Z, -Z
-      const mesh   = new THREE.Mesh(geo, [sideMat, sideMat, topMat, sideMat, sideMat, sideMat]);
-      mesh.position.set(town.x, y + slabH / 2, town.z);
-      group.add(mesh);
+      const y    = sampleElev(town.x, town.z, elevations, grid, radiusFt);
+      const seed = ((Math.abs(Math.round(town.x * 13 + town.z * 9))) % 9999) + 1;
+      _buildTown(fp, town.x, town.z, seed, y, group);
     }
 
     this._scene.add(group);
