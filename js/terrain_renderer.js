@@ -174,51 +174,14 @@ export class TerrainRenderer {
       }
     }
 
-    // ── Ocean detection: flood-fill from grid boundary ───────────────────────
-    // Terrarium tiles encode open ocean as 0 or negative elevation (metres).
-    // Flood-fill from all boundary cells at or below sea level to detect
-    // contiguous ocean/sea regions, then depress them like water polygons.
-    const OCEAN_THRESH = 10; // ft — catches shallow coastal water
-    {
-      const oceanMask = new Uint8Array(grid * grid);
-      const queue = [];
-      // Seed from boundary cells at or below threshold
-      for (let iy = 0; iy < grid; iy++) {
-        for (let ix = 0; ix < grid; ix++) {
-          if (iy === 0 || iy === grid - 1 || ix === 0 || ix === grid - 1) {
-            if (elevations[iy * grid + ix] <= OCEAN_THRESH) {
-              oceanMask[iy * grid + ix] = 1;
-              queue.push(iy * grid + ix);
-            }
-          }
-        }
-      }
-      // BFS
-      for (let qi = 0; qi < queue.length; qi++) {
-        const vi = queue[qi];
-        const iy = Math.floor(vi / grid);
-        const ix = vi % grid;
-        for (const [dy, dx] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-          const ny = iy + dy, nx = ix + dx;
-          if (ny < 0 || ny >= grid || nx < 0 || nx >= grid) continue;
-          const ni = ny * grid + nx;
-          if (!oceanMask[ni] && elevations[ni] <= OCEAN_THRESH) {
-            oceanMask[ni] = 1;
-            queue.push(ni);
-          }
-        }
-      }
-      // Depress ocean cells (never inside flat inner zone)
-      const flatSq = FLAT_INNER_FT * FLAT_INNER_FT;
-      for (let vi = 0; vi < grid * grid; vi++) {
-        if (!oceanMask[vi]) continue;
-        const iy = Math.floor(vi / grid);
-        const ix = vi % grid;
-        const wx = radiusFt * (-1 + 2 * ix / segs);
-        const wz = radiusFt * (-1 + 2 * iy / segs);
-        if (wx * wx + wz * wz >= flatSq) elevations[vi] = -500;
-      }
-    }
+    // ── Ocean plane detection ─────────────────────────────────────────────────
+    // Check raw corrected elevations at the grid boundary to decide whether
+    // this airport borders open ocean.  The actual ocean plane is added later.
+    const _rawCorr = data.elevations.map(e => e + correction);
+    const _hasOcean = _rawCorr.some((e, vi) => {
+      const iy = Math.floor(vi / grid), ix = vi % grid;
+      return (iy === 0 || iy === grid - 1 || ix === 0 || ix === grid - 1) && e < 0;
+    });
 
     // ── Depress terrain inside water polygons ────────────────────────────────
     // For each water polygon, compute its surface elevation (same formula used
@@ -301,7 +264,7 @@ export class TerrainRenderer {
         // ── Colour-band elevation jitter (smooth, not per-vertex stipple) ────
         const noiseRange = 350 + Math.min(900, aboveAirport * 0.18);
         const colorElev  = elev + (patchNoise - 0.5) * 2 * noiseRange;
-        const isWater = colorElev < 0;
+        const isWater = elev < 0;
         const c = elevColor(colorElev, airport.elevation, biome);
 
         // ── Flat land colour variety: dry/crop/lush patches ──────────────────
@@ -371,6 +334,21 @@ export class TerrainRenderer {
       flatShading:  false,
       map:          detailTex,   // tiling noise × vertex colour → fine surface detail
     })));
+
+    // ── Ocean plane ───────────────────────────────────────────────────────────
+    // For coastal airports a large flat plane at Y = -1 ft (just below sea
+    // level) acts as the ocean surface.  Wherever terrain is above -1 ft the
+    // terrain mesh occludes the plane (land visible); wherever terrain is below
+    // -1 ft the plane is in front (ocean visible).  This gives a crisp natural
+    // coastline wherever the elevation grid crosses zero.
+    if (_hasOcean) {
+      const oceanGeo = new THREE.PlaneGeometry(side, side);
+      oceanGeo.rotateX(-Math.PI / 2);
+      const oceanMesh = new THREE.Mesh(oceanGeo,
+        new THREE.MeshLambertMaterial({ color: 0x3B7CBF }));
+      oceanMesh.position.y = -1;   // 1 ft below sea level — land terrain stays on top
+      group.add(oceanMesh);
+    }
 
     // ── Water polygons ───────────────────────────────────────────────────────
     const waterMat = new THREE.MeshLambertMaterial({ color: 0x3B7CBF, side: THREE.DoubleSide });
