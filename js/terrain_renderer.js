@@ -301,12 +301,13 @@ export class TerrainRenderer {
         // ── Colour-band elevation jitter (smooth, not per-vertex stipple) ────
         const noiseRange = 350 + Math.min(900, aboveAirport * 0.18);
         const colorElev  = elev + (patchNoise - 0.5) * 2 * noiseRange;
+        const isWater = colorElev < 0;
         const c = elevColor(colorElev, airport.elevation, biome);
 
         // ── Flat land colour variety: dry/crop/lush patches ──────────────────
         const hillWeight = Math.min(1, aboveAirport / 2500);
         const flatWeight = 1 - hillWeight;
-        if (flatWeight > 0) {
+        if (!isWater && flatWeight > 0) {
           // category drives colour type: low=lush, mid=lighter, high=dry/crop
           const category = n1 * 0.50 + n3 * 0.30 + n4 * 0.20;
           if (category > 0.25) {
@@ -318,7 +319,7 @@ export class TerrainRenderer {
         // ── Rocky slope variation: steep faces blend toward rock colours ──────
         const slopeMag  = Math.sqrt(dex * dex + dez * dez);
         const rockiness = Math.min(1, slopeMag * 2.4) * hillWeight;
-        if (rockiness > 0.05) {
+        if (!isWater && rockiness > 0.05) {
           const rockCol = (n2 + n3 * 0.4) > 0.52 ? _rockCol1 : _rockCol2;
           c.lerp(rockCol, rockiness * 0.82);
         }
