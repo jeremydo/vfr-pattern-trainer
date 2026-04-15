@@ -396,6 +396,10 @@ export class TerrainRenderer {
     const footprints = [3000, 7000, 15000];
     for (const town of towns) {
       const fp   = footprints[Math.min(town.size - 1, 2)];
+      const dist = Math.sqrt(town.x * town.x + town.z * town.z);
+      // Skip if the nearest edge of the box would fall inside the flat airport zone —
+      // prevents city blocks from sitting on top of runways (e.g. Centennial at KAPA).
+      if (dist - fp / 2 < FLAT_INNER_FT) continue;
       const h    = fp * 0.012 + 20;
       const y    = sampleElev(town.x, town.z, elevations, grid, radiusFt);
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(fp, h, fp), townMat);
