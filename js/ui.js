@@ -79,7 +79,7 @@ export class UI {
               <label class="ac-card${ac.id===sel.aircraft.id?' active':''}">
                 <input type="radio" name="ac" value="${ac.id}" ${ac.id===sel.aircraft.id?'checked':''}>
                 <div class="ac-name">${ac.name}</div>
-                <div class="ac-sub">${ac.gear==='fixed'?'Fixed gear':'Retractable gear'} · ${ac.type}</div>
+                <div class="ac-sub"><span${ac.gear==='fixed'?' class="gear-fixed-badge"':''}>${ac.gear==='fixed'?'Fixed gear':'Retractable gear'}</span> · ${ac.type}</div>
                 <div class="ac-speeds">DW ${ac.speeds.downwind} / Base ${ac.speeds.base} / Vref ${Math.round(ac.vs0*1.3)} kts</div>
               </label>`).join('')}
           </div>
