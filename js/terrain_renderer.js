@@ -76,12 +76,30 @@ function _makeDetailTex(side) {
 // Produces a ground plane + a cluster of box buildings with density/height
 // falloff from the town centre and zone-based material palette.
 function _buildTown(fp, cx, cz, seed, y, group) {
-  // Ground: asphalt/urban base, 1 ft above terrain to avoid z-fighting
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0x787270 });
+  // Ground: lighter concrete/block colour, 1 ft above terrain
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x9A9490 });
   const ground    = new THREE.Mesh(new THREE.PlaneGeometry(fp, fp), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(cx, y + 1, cz);
   group.add(ground);
+
+  // Road grid: dark asphalt strips laid over the ground plane
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0x3E3C3A });
+  const nBlocks = fp <= 3500 ? 5 : fp <= 8000 ? 8 : 13;  // grid divisions
+  const roadW   = fp <= 3500 ? 70 : fp <= 8000 ? 90 : 110; // road width ft
+  for (let r = 1; r < nBlocks; r++) {
+    const pos = -half + fp * r / nBlocks;
+    // E–W road strip
+    const ew = new THREE.Mesh(new THREE.PlaneGeometry(fp, roadW), roadMat);
+    ew.rotation.x = -Math.PI / 2;
+    ew.position.set(cx, y + 2, cz + pos);
+    group.add(ew);
+    // N–S road strip
+    const ns = new THREE.Mesh(new THREE.PlaneGeometry(roadW, fp), roadMat);
+    ns.rotation.x = -Math.PI / 2;
+    ns.position.set(cx + pos, y + 2, cz);
+    group.add(ns);
+  }
 
   // Deterministic LCG — all randomness driven by `seed`
   let rng = ((seed * 1664525 + 1013904223) >>> 0);
