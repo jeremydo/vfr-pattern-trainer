@@ -192,10 +192,12 @@ export class TerrainRenderer {
           for (let ix = 0; ix < grid; ix++) {
             const wx = radiusFt * (-1 + 2 * ix / segs);
             const wz = radiusFt * (-1 + 2 * iy / segs);
+            // Never depress inside the flat inner zone — protects runway area
+            // from tidal/wetland polygons that may overlap the airport footprint.
+            const distSq = wx * wx + wz * wz;
+            if (distSq < FLAT_INNER_FT * FLAT_INNER_FT) continue;
             if (pointInPolygon(wx, wz, poly.coords)) {
               const vi = iy * grid + ix;
-              // Deep depression: makes the shoreline appear within ~30 ft of the
-              // polygon edge rather than thousands of feet inside it.
               elevations[vi] = -500;
             }
           }
