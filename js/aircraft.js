@@ -15,13 +15,14 @@ export class Aircraft {
     this.heading  = 0;     // degrees
     this.pitch    = 0;     // degrees, +up
     this.bank     = 0;     // degrees, +right wing down
-    this.airspeed  = 0;     // knots
-    this.vs        = 0;     // ft/min
-    this._vsActual = 0;     // ft/s, smoothed (drives position)
-    this.throttle  = 0.55;
-    this.flaps     = 0;
-    this.gearDown  = data.gear === 'fixed';
-    this.onGround  = false;
+    this.airspeed   = 0;     // knots
+    this.vs         = 0;     // ft/min
+    this._vsActual  = 0;     // ft/s, smoothed (drives position)
+    this._rollInput = 0;     // -1..+1, used to animate ailerons
+    this.throttle   = 0.55;
+    this.flaps      = 0;
+    this.gearDown   = data.gear === 'fixed';
+    this.onGround   = false;
 
     this.mesh = this._buildMesh();
     scene.add(this.mesh);
@@ -32,12 +33,13 @@ export class Aircraft {
     this.heading  = headingDeg;
     this.pitch    = 0;
     this.bank     = 0;
-    this.airspeed  = airspeedKts;
-    this.vs        = 0;
-    this._vsActual = 0;
-    this.flaps     = 0;
-    this.gearDown  = this.data.gear === 'fixed';
-    this.onGround  = false;
+    this.airspeed   = airspeedKts;
+    this.vs         = 0;
+    this._vsActual  = 0;
+    this._rollInput = 0;
+    this.flaps      = 0;
+    this.gearDown   = this.data.gear === 'fixed';
+    this.onGround   = false;
     this._syncMesh();
   }
 
@@ -54,6 +56,7 @@ export class Aircraft {
     if (controls.flapsUp)   this.flaps = Math.max(0, this.flaps - 1);
 
     // Attitude
+    this._rollInput   = controls.rollInput;
     const pitchTarget = controls.pitchInput * this.data.maxPitch;
     const bankTarget  = controls.rollInput  * this.data.maxBank;
     this.pitch = lerp(this.pitch, pitchTarget, this.data.pitchRate * dt);
@@ -149,6 +152,13 @@ export class Aircraft {
       const t     = this.flaps / Math.max(1, this.data.flaps.length - 1);
       const angle = -t * (35 * DEG);   // negative → trailing edge deflects down
       this._flapPivots.forEach(p => { p.rotation.x = angle; });
+    }
+    if (this._aileronPivots) {
+      const maxAngle = 20 * DEG;
+      // Antisymmetric: sx=+1 (right wing) down when rolling right, left wing up
+      this._aileronPivots.forEach(({ pivot, sx }) => {
+        pivot.rotation.x = -sx * this._rollInput * maxAngle;
+      });
     }
   }
 
@@ -270,12 +280,18 @@ export class Aircraft {
       g.add(makeStrut(-2.5, -1.5, 2.5, -14, wingY - 0.1, 0.0));
     }
 
-    // ── Ailerons (outer wing trailing edge, static) ───────────────────────
-    for (const sx of [1, -1]) {
-      const ail = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.18, 1.9), m(c.body));
-      ail.position.set(sx * 21, wingY - 0.24, oTE - 0.95);
-      g.add(ail);
-    }
+    // ── Ailerons (outer wing trailing edge, animated antisymmetrically) ───
+    // Each aileron is a child of a pivot group whose origin sits at its hinge
+    // line (= outer panel trailing edge). Roll input drives them: one up, one down.
+    this._aileronPivots = [1, -1].map(sx => {
+      const pivot = new THREE.Group();
+      pivot.position.set(sx * 21, wingY - 0.18, oTE);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.18, 1.9), m(c.body));
+      panel.position.set(0, -0.09, -0.95);   // hangs aft of hinge at rest
+      pivot.add(panel);
+      g.add(pivot);
+      return { pivot, sx };
+    });
 
     // ── Flaps (inner wing trailing edge, animated) ────────────────────────
     // Each flap is a child of a pivot group whose origin sits at the hinge line
