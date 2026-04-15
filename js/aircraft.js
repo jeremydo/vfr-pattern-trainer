@@ -15,12 +15,13 @@ export class Aircraft {
     this.heading  = 0;     // degrees
     this.pitch    = 0;     // degrees, +up
     this.bank     = 0;     // degrees, +right wing down
-    this.airspeed = 0;     // knots
-    this.vs       = 0;     // ft/min
-    this.throttle = 0.55;
-    this.flaps    = 0;
-    this.gearDown = data.gear === 'fixed';
-    this.onGround = false;
+    this.airspeed  = 0;     // knots
+    this.vs        = 0;     // ft/min
+    this._vsActual = 0;     // ft/s, smoothed (drives position)
+    this.throttle  = 0.55;
+    this.flaps     = 0;
+    this.gearDown  = data.gear === 'fixed';
+    this.onGround  = false;
 
     this.mesh = this._buildMesh();
     scene.add(this.mesh);
@@ -31,11 +32,12 @@ export class Aircraft {
     this.heading  = headingDeg;
     this.pitch    = 0;
     this.bank     = 0;
-    this.airspeed = airspeedKts;
-    this.vs       = 0;
-    this.flaps    = 0;
-    this.gearDown = this.data.gear === 'fixed';
-    this.onGround = false;
+    this.airspeed  = airspeedKts;
+    this.vs        = 0;
+    this._vsActual = 0;
+    this.flaps     = 0;
+    this.gearDown  = this.data.gear === 'fixed';
+    this.onGround  = false;
     this._syncMesh();
   }
 
@@ -75,10 +77,20 @@ export class Aircraft {
       this.airspeed  = Math.max(this.data.vs0 * 0.7, Math.min(this.data.vne, this.airspeed));
     }
 
-    // Vertical speed
-    const stallF = Math.max(0, Math.min(1, (this.airspeed - this.data.vs0 * 0.8) / (this.data.vs1 * 0.4)));
-    const vsFPS  = this.airspeed * KTS * Math.sin(pitchRad) * stallF;
-    this.vs      = vsFPS * 60;
+    // Vertical speed — smoothed so flare feels gradual (~0.33 s time constant)
+    const stallF      = Math.max(0, Math.min(1, (this.airspeed - this.data.vs0 * 0.8) / (this.data.vs1 * 0.4)));
+    const targetVsFPS = this.airspeed * KTS * Math.sin(pitchRad) * stallF;
+    this._vsActual    = lerp(this._vsActual, targetVsFPS, 3.0 * dt);
+    this.vs           = this._vsActual * 60;
+
+    // Ground effect: within 40 ft AGL, cushion descent (reduced induced drag near
+    // the surface causes the natural "float" pilots experience during flare)
+    const agl = this.position.y - airportElevation;
+    let effectiveVsFPS = this._vsActual;
+    if (this._vsActual < 0 && agl < 40) {
+      const ge = Math.max(0, 1 - agl / 40);   // 0 at 40 ft → 1 at surface
+      effectiveVsFPS = this._vsActual * (1 - ge * 0.4);  // up to 40% reduction
+    }
 
     // Heading change from bank
     const bankRad   = this.bank * DEG;
@@ -91,7 +103,7 @@ export class Aircraft {
     const hSpeed = this.airspeed * KTS * Math.cos(pitchRad);
     this.position.x += Math.sin(hdgRad) * hSpeed * dt;
     this.position.z -= Math.cos(hdgRad) * hSpeed * dt;
-    this.position.y += vsFPS * dt;
+    this.position.y += effectiveVsFPS * dt;
 
     // Wind drift
     if (scenario && scenario.windSpeed > 0) {
@@ -104,6 +116,7 @@ export class Aircraft {
     // Ground
     if (this.position.y <= airportElevation) {
       this.position.y = airportElevation;
+      this._vsActual  = 0;
       this.onGround   = true;
     }
 
@@ -137,61 +150,147 @@ export class Aircraft {
   _buildMesh() {
     const g = new THREE.Group();
     const c = this.data.color;
-    const m = col => new THREE.MeshLambertMaterial({ color: col });
+    const m  = col => new THREE.MeshLambertMaterial({ color: col });
+    const mt = (col, op) => new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: op });
 
-    // Fuselage
-    const fuse = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 26), m(c.body));
-    fuse.position.z = -2;
-    g.add(fuse);
+    // ── Fuselage — three tapered sections (cabin → mid → tail) ───────────────
+    // Forward / cabin section (tallest and widest)
+    const fuseFwd = new THREE.Mesh(new THREE.BoxGeometry(4.0, 4.5, 12), m(c.body));
+    fuseFwd.position.set(0, 0.3, 2);
+    g.add(fuseFwd);
 
-    // Wings — high for C172, low for others
-    const wingY = this.data.wingHigh ? 1.5 : -0.5;
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(38, 0.6, 6), m(c.body));
-    wing.position.set(0, wingY, 1);
-    g.add(wing);
+    // Mid-aft section (steps down in cross-section)
+    const fuseMid = new THREE.Mesh(new THREE.BoxGeometry(3.1, 3.2, 9), m(c.body));
+    fuseMid.position.set(0, -0.2, -6);
+    g.add(fuseMid);
 
-    // Accent stripe along wing leading edge
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(40, 0.15, 1), m(c.accent));
-    stripe.position.set(0, wingY + 0.3, -2);
-    g.add(stripe);
+    // Tail cone (narrow)
+    const fuseTail = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.2, 7), m(c.body));
+    fuseTail.position.set(0, -0.6, -13.5);
+    g.add(fuseTail);
 
-    // H-stab
-    const hstab = new THREE.Mesh(new THREE.BoxGeometry(14, 0.5, 4), m(c.body));
-    hstab.position.set(0, 0.5, -11);
-    g.add(hstab);
+    // ── Livery accent stripe along fuselage sides ────────────────────────────
+    const fuseStripe = new THREE.Mesh(new THREE.BoxGeometry(4.05, 1.1, 21), m(c.accent));
+    fuseStripe.position.set(0, -0.6, -1);
+    g.add(fuseStripe);
 
-    // V-stab
-    const vstab = new THREE.Mesh(new THREE.BoxGeometry(0.5, 5, 4), m(c.accent));
-    vstab.position.set(0, 3, -11);
-    g.add(vstab);
+    // ── Windshield (raked panel) ─────────────────────────────────────────────
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 3.8), mt(0x334455, 0.80));
+    windshield.position.set(0, 2.35, 7.0);
+    windshield.rotation.x = 0.62;   // ~35° rake
+    g.add(windshield);
 
-    // Engine cowl / nose
-    const cowl = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 3), m(c.accent));
-    cowl.position.set(0, 0, 11.5);
+    // ── Cabin side windows ───────────────────────────────────────────────────
+    const winMat = mt(0x2D3F50, 0.85);
+    const winL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.7, 7.5), winMat);
+    winL.position.set(2.05, 1.0, 2.5);
+    g.add(winL);
+    const winR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.7, 7.5), winMat);
+    winR.position.set(-2.05, 1.0, 2.5);
+    g.add(winR);
+
+    // ── Wings ────────────────────────────────────────────────────────────────
+    const wingY = this.data.wingHigh ? 2.1 : -0.9;
+
+    // Inner panels (thicker root, full chord)
+    const wingInL = new THREE.Mesh(new THREE.BoxGeometry(13, 0.75, 6.5), m(c.body));
+    wingInL.position.set( 8.5, wingY, 1);
+    g.add(wingInL);
+    const wingInR = new THREE.Mesh(new THREE.BoxGeometry(13, 0.75, 6.5), m(c.body));
+    wingInR.position.set(-8.5, wingY, 1);
+    g.add(wingInR);
+
+    // Outer panels (thinner, slightly shorter chord)
+    const wingOutL = new THREE.Mesh(new THREE.BoxGeometry(12, 0.50, 5.5), m(c.body));
+    wingOutL.position.set( 21, wingY - 0.05, 1);
+    g.add(wingOutL);
+    const wingOutR = new THREE.Mesh(new THREE.BoxGeometry(12, 0.50, 5.5), m(c.body));
+    wingOutR.position.set(-21, wingY - 0.05, 1);
+    g.add(wingOutR);
+
+    // Wing-tip caps
+    const tipL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.38, 4.5), m(c.body));
+    tipL.position.set( 27.5, wingY - 0.12, 1);
+    g.add(tipL);
+    const tipR = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.38, 4.5), m(c.body));
+    tipR.position.set(-27.5, wingY - 0.12, 1);
+    g.add(tipR);
+
+    // Wing leading-edge accent stripe
+    const wingStripe = new THREE.Mesh(new THREE.BoxGeometry(58, 0.15, 1.0), m(c.accent));
+    wingStripe.position.set(0, wingY + 0.32, -1.8);
+    g.add(wingStripe);
+
+    // ── Horizontal stabiliser ────────────────────────────────────────────────
+    const hstabIn = new THREE.Mesh(new THREE.BoxGeometry(9, 0.50, 4.0), m(c.body));
+    hstabIn.position.set(0, 0.4, -13);
+    g.add(hstabIn);
+
+    const hstabOutL = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.35, 3.2), m(c.body));
+    hstabOutL.position.set( 6.8, 0.3, -13);
+    g.add(hstabOutL);
+    const hstabOutR = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.35, 3.2), m(c.body));
+    hstabOutR.position.set(-6.8, 0.3, -13);
+    g.add(hstabOutR);
+
+    // ── Vertical stabiliser (two boxes for slight taper) ─────────────────────
+    const vstabLo = new THREE.Mesh(new THREE.BoxGeometry(0.55, 3.0, 4.5), m(c.accent));
+    vstabLo.position.set(0, 2.0, -12.5);
+    g.add(vstabLo);
+
+    const vstabHi = new THREE.Mesh(new THREE.BoxGeometry(0.55, 2.2, 3.2), m(c.accent));
+    vstabHi.position.set(0, 4.6, -11.8);
+    g.add(vstabHi);
+
+    // ── Engine cowl (cylindrical) ─────────────────────────────────────────────
+    const cowl = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.35, 4.5, 8), m(c.accent));
+    cowl.rotation.x = Math.PI / 2;
+    cowl.position.set(0, 0.1, 10.5);
     g.add(cowl);
 
-    // Propeller disk
+    // ── Prop spinner (cone) ──────────────────────────────────────────────────
+    const spinner = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.6, 8), m(c.accent));
+    spinner.rotation.x = -Math.PI / 2;
+    spinner.position.set(0, 0.1, 14.0);
+    g.add(spinner);
+
+    // ── Propeller disk ───────────────────────────────────────────────────────
     const propMat = new THREE.MeshBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.35 });
     const prop = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.2, 12), propMat);
     prop.rotation.x = Math.PI / 2;
-    prop.position.z = 13.5;
+    prop.position.set(0, 0.1, 14.6);
     g.add(prop);
 
-    // Landing gear
+    // ── Landing gear ─────────────────────────────────────────────────────────
     const gearGrp = new THREE.Group();
     const gm = m(c.gear);
 
     const addGear = (x, y, z) => {
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 4, 6), gm);
-      strut.position.set(x, y - 2, z);
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.9, 8), gm);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, y - 4.5, z);
-      gearGrp.add(strut, wheel);
+      // Strut (slightly tapered)
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 4.2, 6), gm);
+      strut.position.set(x, y - 2.1, z);
+      // Axle
+      const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.8, 5), gm);
+      axle.rotation.z = Math.PI / 2;
+      axle.position.set(x, y - 4.3, z);
+      // Tyre
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 1.1, 10), gm);
+      tyre.rotation.z = Math.PI / 2;
+      tyre.position.set(x, y - 4.3, z);
+      gearGrp.add(strut, axle, tyre);
+
+      // Wheel fairing for fixed-gear aircraft
+      if (this.data.gear === 'fixed') {
+        const fairing = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.35, 3.0, 8), m(c.body));
+        fairing.rotation.z = Math.PI / 2;
+        fairing.position.set(x, y - 4.3, z);
+        gearGrp.add(fairing);
+      }
     };
-    addGear(0, -1, 8);      // nose
-    addGear(-9, -1, 0);     // left main
-    addGear( 9, -1, 0);     // right main
+
+    addGear( 0, -1, 8);    // nose
+    addGear(-9, -1, 0);    // left main
+    addGear( 9, -1, 0);    // right main
 
     gearGrp.visible = this.gearDown;
     this._gearGroup = gearGrp;

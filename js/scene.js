@@ -279,6 +279,7 @@ export class SceneManager {
         const ox = bx + rng(-400, 400), oz = bz + rng(-400, 400);
         if (Math.abs(ox) > lim || Math.abs(oz) > lim) continue;
         const ey = sampleE(ox, oz);
+        if (ey < 0) continue;  // don't place houses in water
         const w  = rng(50, 120), d = rng(40, 90), h = rng(20, 44);
         const mi = (i * 4 + j) % wallMats.length;
         const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[mi]);
