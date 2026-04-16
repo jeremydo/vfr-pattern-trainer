@@ -267,10 +267,21 @@ export function headingVec(deg) {
   return { x: Math.sin(r), z: -Math.cos(r) };
 }
 
+// Snap endId's approximate heading (parseInt*10) to the runway's actual heading
+// or its reciprocal — whichever is closer.  Fixes misalignment for runways whose
+// number does not exactly match their magnetic heading (e.g. 20L at 196°).
+export function endHeading(runway, endId) {
+  const approx = parseInt(endId) * 10;
+  const h1 = runway.heading, h2 = (runway.heading + 180) % 360;
+  const d1 = Math.abs(((approx - h1 + 540) % 360) - 180);
+  const d2 = Math.abs(((approx - h2 + 540) % 360) - 180);
+  return d1 <= d2 ? h1 : h2;
+}
+
 // Threshold world position for a runway end (feet, relative to airport origin at Y=elevation)
 export function thresholdPos(runway, endId, elevation) {
-  const landingHdg      = parseInt(endId) * 10;
-  const hdgToThreshold  = (landingHdg + 180) % 360;  // opposite of landing direction
+  const landingHdg     = endHeading(runway, endId);
+  const hdgToThreshold = (landingHdg + 180) % 360;  // opposite of landing direction
   const v    = headingVec(hdgToThreshold);
   const half = runway.length / 2;
   return {

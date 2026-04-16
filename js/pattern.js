@@ -1,5 +1,5 @@
 import { PHASES } from './state.js';
-import { thresholdPos, headingVec } from './data/airports.js';
+import { thresholdPos, headingVec, endHeading } from './data/airports.js';
 import { vref } from './data/aircraft_data.js';
 import { windComponents, gustAddition } from './data/scenarios.js';
 
@@ -25,7 +25,7 @@ export class PatternChecker {
     const isTurbine  = aircraft.data.type === 'turbine';
     const patAGL     = isTurbine ? airport.turbinePatternAGL : airport.patternAGL;
     const patAltMSL  = elev + patAGL;
-    const landingHdg = parseInt(activeEnd.id) * 10;
+    const landingHdg = endHeading(runway, activeEnd.id);
     const downwindHdg= normHdg(landingHdg + 180);
     const thr        = thresholdPos(runway, activeEnd.id, elev);
     const rwyVec     = headingVec(landingHdg);
@@ -141,7 +141,7 @@ export class PatternChecker {
 
   recordTouchdown(aircraft, airport, runway, activeEnd) {
     const elev       = airport.elevation;
-    const landingHdg = parseInt(activeEnd.id) * 10;
+    const landingHdg = endHeading(runway, activeEnd.id);
     const thr        = thresholdPos(runway, activeEnd.id, elev);
     const rwyVec     = headingVec(landingHdg);
     const toPosX     = aircraft.position.x - thr.x;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { headingVec, thresholdPos } from './data/airports.js';
+import { headingVec, thresholdPos, endHeading } from './data/airports.js';
 import { TerrainRenderer } from './terrain_renderer.js';
 
 export class SceneManager {
@@ -388,7 +388,7 @@ export class SceneManager {
     const elev   = airport.elevation;
     const patY   = patternAltMSL;
     const patAGL = patternAltMSL - elev;
-    const landingHdg = parseInt(activeEnd.id) * 10;
+    const landingHdg = endHeading(runway, activeEnd.id);
 
     // Scale pattern geometry to aircraft speed.
     // speedF=1 for ~90 kt trainers, speedF=2 for ~180 kt turbines.
