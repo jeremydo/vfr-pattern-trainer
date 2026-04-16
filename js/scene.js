@@ -199,18 +199,10 @@ export class SceneManager {
     this._terrainSceneryGroup = group;
     this.scene.add(group);
 
-    // Inline elevation sampler matching terrain_renderer correction
-    const { grid, radiusFt, elevations } = data;
-    const segs = grid - 1;
-    const ci   = Math.floor(segs / 2);
-    const avg4 = (elevations[ci*grid+ci] + elevations[ci*grid+(ci+1)] +
-                  elevations[(ci+1)*grid+ci] + elevations[(ci+1)*grid+(ci+1)]) / 4;
-    const correction = airport.elevation - avg4;
-    const sampleE = (wx, wz) => {
-      const j = Math.max(0, Math.min(segs, Math.round((wx + radiusFt) / (2 * radiusFt) * segs)));
-      const i = Math.max(0, Math.min(segs, Math.round((wz + radiusFt) / (2 * radiusFt) * segs)));
-      return (elevations[i * grid + j] ?? airport.elevation) + correction;
-    };
+    // Use the terrain renderer's post-processed elevation (includes flat zone,
+    // blend zone, and outer skirt) so scenery sits flush on the visual surface.
+    const { radiusFt } = data;
+    const sampleE = (wx, wz) => this._terrain.sampleElevation(wx, wz);
 
     const rng = (a, b) => a + Math.random() * (b - a);
     const lim = radiusFt * 0.92;

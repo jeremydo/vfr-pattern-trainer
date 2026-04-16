@@ -239,13 +239,14 @@ export class TerrainRenderer {
           elevations[vi] = airport.elevation * (1 - s) + elevations[vi] * s;
         }
 
-        // Outer edge skirt: blend elevation to 0 over the outermost 12% of the
-        // tile so the mesh tucks into the flat ground plane instead of forming
-        // visible floating walls at the tile boundary.
+        // Outer edge skirt: blend elevation toward the ground-plane level over
+        // the outermost 12% of the tile so the mesh tucks seamlessly into the
+        // flat fallback ground (placed at airport.elevation − 2000).
         const distFrac = dist / radiusFt;
         if (distFrac > 0.88) {
-          const s = smoothstep((distFrac - 0.88) / 0.12);
-          elevations[vi] *= (1 - s);
+          const s          = smoothstep((distFrac - 0.88) / 0.12);
+          const groundElev = airport.elevation - 2000;
+          elevations[vi]   = elevations[vi] * (1 - s) + groundElev * s;
         }
       }
     }
