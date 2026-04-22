@@ -452,100 +452,95 @@ export class SceneManager {
       });
     };
 
-    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R, N_ARC);
-    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R, N_ARC);
+    // Higher arc resolution for smooth curves
+    const N_ARC2 = Math.round(28 * Math.sqrt(speedF));
+    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R, N_ARC2);
+    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R, N_ARC2);
 
-    // Smoothly descend through the base-to-final arc from patY → finCorAlt
-    finalArc.forEach((pt, i) => {
-      pt.y = patY + (finCorAlt - patY) * (i / (finalArc.length - 1));
-    });
+    // Abeam-threshold point on downwind — this is where the pilot starts descent
+    const pAbeam = new THREE.Vector3(
+      thr.x + perpVec.x * OFFSET, patY, thr.z + perpVec.z * OFFSET
+    );
 
-    const group = new THREE.Group();
-
-    // CatmullRomCurve3 tube — passes smoothly through all pts
-    const makeTube = (pts, color, opacity = 0.38, r = 18) => {
-      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-      const segs  = Math.max(40, pts.length * 8);
-      group.add(new THREE.Mesh(
-        new THREE.TubeGeometry(curve, segs, r, 8, false),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity })
-      ));
-      return curve;
-    };
-
-    // Direction arrows sampled from a CatmullRomCurve3
-    const addArrows = (curve, color, count = 2) => {
-      for (let i = 1; i <= count; i++) {
-        const t   = i / (count + 1);
-        const pos = curve.getPointAt(t);
-        const tan = curve.getTangentAt(t).normalize();
-        const m   = new THREE.Mesh(
-          new THREE.ConeGeometry(28, 90, 6),
-          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45 })
-        );
-        m.position.copy(pos);
-        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
-        group.add(m);
-      }
-    };
-
-    const addNode = (p, color, r = 50) => {
-      const m = new THREE.Mesh(
-        new THREE.SphereGeometry(r, 8, 6),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45 })
-      );
-      m.position.copy(p);
-      group.add(m);
-    };
-
-    // Linearly interpolate two Vector3s
     const lerp3 = (a, b, t) => new THREE.Vector3(
       a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t
     );
 
-    // Downwind (cyan): straight to start of base arc, then the arc itself.
-    // Extra collinear intermediate points ensure the straight section stays straight.
-    const dwCurve = makeTube([
-      pDW,
-      lerp3(pDW, baseArc[0], 1 / 3),
-      lerp3(pDW, baseArc[0], 2 / 3),
-      ...baseArc
-    ], 0x00E5FF);
-    addArrows(dwCurve, 0x00E5FF, 2);
+    // ── Single continuous control-point list ────────────────────
+    // Many collinear intermediate points on straight legs keep
+    // CatmullRomCurve3 from bowing them into unwanted curves.
+    const nMid = 10;
+    const pts  = [];
+    const addSeg = (a, b, n) => {
+      for (let i = 0; i <= n; i++) pts.push(lerp3(a, b, i / n));
+    };
 
-    // Base (yellow): out of base arc, straight to start of final arc, then that arc.
-    const baseEnd = baseArc[baseArc.length - 1];
-    const baseCurve = makeTube([
-      ...baseArc,
-      lerp3(baseEnd, finalArc[0], 1 / 3),
-      lerp3(baseEnd, finalArc[0], 2 / 3),
-      ...finalArc
-    ], 0xFFE000);
-    addArrows(baseCurve, 0xFFE000, 1);
+    addSeg(pDW, pAbeam, nMid);                                  // upper downwind
+    addSeg(pAbeam, baseArc[0], nMid);                           // lower downwind
+    baseArc.forEach(p => pts.push(p.clone()));                  // downwind→base turn
+    addSeg(baseArc[baseArc.length - 1], finalArc[0], nMid);     // base leg
+    finalArc.forEach(p => pts.push(p.clone()));                 // base→final turn
+    addSeg(finalArc[finalArc.length - 1], pThr, nMid);          // final approach
 
-    // Final (magenta): out of final arc, straight to threshold.
-    const finEnd = finalArc[finalArc.length - 1];
-    const finCurve = makeTube([
-      ...finalArc,
-      lerp3(finEnd, pThr, 1 / 3),
-      lerp3(finEnd, pThr, 2 / 3),
-      pThr
-    ], 0xFF44AA);
-    addArrows(finCurve, 0xFF44AA, 1);
+    // ── Altitude profile ─────────────────────────────────────────
+    // Level on the upper downwind; smooth S-curve descent from the
+    // abeam point all the way to the threshold.
+    const abeamIdx = nMid;          // index of pAbeam in pts[]
+    const lastIdx  = pts.length - 1;
+    pts.forEach((pt, i) => {
+      if (i <= abeamIdx) {
+        pt.y = patY;
+      } else {
+        const t    = (i - abeamIdx) / (lastIdx - abeamIdx);
+        const ease = t * t * (3 - 2 * t);                      // smoothstep
+        pt.y = patY + (elev + 50 - patY) * ease;
+      }
+    });
 
-    // Extended final guide (white, dimmed) — plain straight tube
+    const group = new THREE.Group();
+
+    // ── Single continuous tube ───────────────────────────────────
+    const mainCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+    const mainSegs  = Math.max(200, pts.length * 6);
+    group.add(new THREE.Mesh(
+      new THREE.TubeGeometry(mainCurve, mainSegs, 18, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x44CCFF, transparent: true, opacity: 0.42 })
+    ));
+
+    // Direction arrows evenly spaced along the full curve
+    for (let i = 1; i <= 5; i++) {
+      const t   = i / 6;
+      const pos = mainCurve.getPointAt(t);
+      const tan = mainCurve.getTangentAt(t).normalize();
+      const m   = new THREE.Mesh(
+        new THREE.ConeGeometry(28, 90, 6),
+        new THREE.MeshBasicMaterial({ color: 0x44CCFF, transparent: true, opacity: 0.50 })
+      );
+      m.position.copy(pos);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+      group.add(m);
+    }
+
+    // Extended final guide (white, dimmed) on the 3° glide slope
     const extPath = new THREE.CurvePath();
-    extPath.add(new THREE.LineCurve3(pOuter, finalArc[0]));
+    extPath.add(new THREE.LineCurve3(pOuter, pts[lastIdx - nMid]));
     group.add(new THREE.Mesh(
       new THREE.TubeGeometry(extPath, 20, 12, 8, false),
       new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.18 })
     ));
 
-    // Waypoint nodes
-    addNode(pDW,    0x00E5FF);
-    addNode(pBase,  0xFFE000);
-    addNode(pFinal, 0xFF44AA);
-    addNode(pThr,   0xFF3333, 35);
+    // Waypoint nodes — entry, abeam, threshold
+    const addNode = (p, color, r = 50) => {
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 8, 6),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 })
+      );
+      m.position.copy(p);
+      group.add(m);
+    };
+    addNode(pDW,   0x44CCFF);
+    addNode(pAbeam.clone().setY(patY), 0xFFE000, 40);
+    addNode(pThr,  0xFF3333, 35);
 
     group.visible = false;
     this._patternGuide = group;
