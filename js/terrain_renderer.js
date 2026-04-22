@@ -38,8 +38,8 @@ const AIRPORT_BIOMES = {
 
 // Flat zone around airport: terrain is forced to airport elevation within FLAT_INNER,
 // then blends smoothly back to real terrain between FLAT_INNER and FLAT_OUTER.
-const FLAT_INNER_FT = 12000;  // ~2.3 miles — dead flat, runway/apron visible
-const FLAT_OUTER_FT = 35000;  // ~6.6 miles — blend complete, real terrain starts
+const FLAT_INNER_FT = 7000;   // ~1.3 miles — dead flat, covers runway + buffer
+const FLAT_OUTER_FT = 28000;  // ~5.3 miles — blend complete, real terrain starts
 
 const _col = new THREE.Color();
 
@@ -76,14 +76,7 @@ function _makeDetailTex(side) {
 // Produces a ground plane + a cluster of box buildings with density/height
 // falloff from the town centre and zone-based material palette.
 function _buildTown(fp, cx, cz, seed, y, group) {
-  // Ground: lighter concrete/block colour, 1 ft above terrain
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0x9A9490 });
-  const ground    = new THREE.Mesh(new THREE.PlaneGeometry(fp, fp), groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(cx, y + 1, cz);
-  group.add(ground);
-
-  // Road grid: dark asphalt strips laid over the ground plane
+  // Road grid: dark asphalt strips directly on terrain
   const roadMat = new THREE.MeshLambertMaterial({ color: 0x3E3C3A });
   const nBlocks = fp <= 3500 ? 5 : fp <= 8000 ? 8 : 13;  // grid divisions
   const roadW   = fp <= 3500 ? 70 : fp <= 8000 ? 90 : 110; // road width ft
