@@ -23,6 +23,7 @@ export class Controls {
     this.pause       = false;
     this.braking     = false;
     this.guideToggle = false;
+    this.audioToggle = false;
     this.turbo       = false;
 
     window.addEventListener('keydown', e => {
@@ -53,6 +54,7 @@ export class Controls {
     this.flapsUp    = this._justPressed.has('KeyV');
     this.pause       = this._justPressed.has('Escape') || this._justPressed.has('KeyP');
     this.guideToggle = this._justPressed.has('KeyT');
+    this.audioToggle = this._justPressed.has('KeyM');
     if (this._justPressed.has('KeyX')) this.turbo = !this.turbo;
 
     this._justPressed.clear();

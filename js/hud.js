@@ -37,7 +37,7 @@ export class HUD {
   show() { this._init(); this._resize(); this._cvs.style.display = 'block'; }
   hide() { if (this._cvs) this._cvs.style.display = 'none'; }
 
-  update(aircraft, appState, checker, scenario, guideVisible = false, turbo = false) {
+  update(aircraft, appState, checker, scenario, guideVisible = false, turbo = false, audioMuted = false) {
     if (!this._cvs || this._cvs.style.display === 'none') return;
     this._resize();
     const ctx = this._ctx, W = this._W, H = this._H;
@@ -78,7 +78,7 @@ export class HUD {
     this._vsi(ctx,        aiX+aiW+tapeW, tapeY, vsiW,   tapeH, aircraft);
     this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,   aircraft);
     this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH,  aircraft, scenario, checker);
-    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev, scenario);
+    this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev, scenario, audioMuted);
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
@@ -382,7 +382,7 @@ export class HUD {
   // ── Top info bar ─────────────────────────────────────────────────
   // Layout (left → right):
   //  [phase text] [wind arrow] [gear icon] [flap icon] [TURBO badge?] [APT elev] [guide/dist]
-  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo, airportElev, scenario) {
+  _topBar(ctx, SX, SW, stripH, checker, aircraft, guideVisible, turbo, airportElev, scenario, audioMuted = false) {
     ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(SX, 0, SW, 22);
 
     // Phase label
@@ -457,6 +457,17 @@ export class HUD {
       ctx.fillStyle = C.green;
       ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('APT ' + Math.round(airportElev), SX + SW * 0.72, 11);
+    }
+
+    // Audio mute badge (~84%)
+    if (audioMuted) {
+      const mx = SX + SW * 0.84;
+      ctx.fillStyle = 'rgba(80,80,80,0.5)';
+      ctx.fillRect(mx - 18, 2, 36, 18);
+      ctx.fillStyle = C.gray;
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('MUTE', mx, 11);
     }
 
     // Distance / GUIDE (right)

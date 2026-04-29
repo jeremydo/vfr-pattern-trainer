@@ -33,6 +33,7 @@ export class UI {
             <span>B</span><span>Brakes</span>
             <span>P / Esc</span><span>Pause</span>
             <span>T</span><span>Pattern guide</span>
+            <span>M</span><span>Mute audio</span>
           </div>
         </div>
       </div>`;

@@ -6,6 +6,7 @@ import { AirportRenderer } from './airport_renderer.js';
 import { PatternChecker } from './pattern.js';
 import { HUD } from './hud.js';
 import { UI } from './ui.js';
+import { AudioCues } from './audio_cues.js';
 import { AIRCRAFT } from './data/aircraft_data.js';
 import { getPatternAlt } from './data/airports.js';
 
@@ -13,14 +14,15 @@ const NM = 6076.12;   // feet per nautical mile
 const DIR_HDG = { N:0, NE:45, E:90, SE:135, S:180, SW:225, W:270, NW:315 };
 
 // ---- Singletons ----
-const state   = new AppState();
-const ctrl    = new Controls();
-const ui      = new UI(state);
-const canvas  = document.getElementById('game-canvas');
-const scene   = new SceneManager(canvas);
-const airport = new AirportRenderer(scene.scene);
-const checker = new PatternChecker();
-const hud     = new HUD();
+const state      = new AppState();
+const ctrl       = new Controls();
+const ui         = new UI(state);
+const canvas     = document.getElementById('game-canvas');
+const scene      = new SceneManager(canvas);
+const airport    = new AirportRenderer(scene.scene);
+const checker    = new PatternChecker();
+const hud        = new HUD();
+const audioCues  = new AudioCues();
 
 let ac           = null;   // Aircraft instance
 let paused       = false;
@@ -63,6 +65,7 @@ async function _startFlight() {
   checker._downwindAltErrs  = [];
   checker._finalSpeedErrs   = [];
   checker._touchdownMetrics = null;
+  audioCues.reset();
 
   // Scene setup
   airport.build(apt);
@@ -128,6 +131,10 @@ function _loop(ts) {
     guideVisible = scene.togglePatternGuide();
   }
 
+  if (ctrl.audioToggle) {
+    audioCues.toggleMute();
+  }
+
   if (!paused && ac) {
     try { _tick(dt); } catch(e) { console.error('Tick error:', e); }
   }
@@ -155,7 +162,8 @@ function _tick(dt) {
   const { glidepath } = checker.update(ac, apt, rwy, end, sc);
   if (glidepath > 0) airport.updatePAPI(end.id, glidepath);
 
-  hud.update(ac, state, checker, sc, guideVisible, ctrl.turbo);
+  audioCues.update(checker, dt);
+  hud.update(ac, state, checker, sc, guideVisible, ctrl.turbo, audioCues.muted);
   state.phase = checker.phase;
 
   if (checker.phase === PHASES.LANDED) {
