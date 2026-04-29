@@ -63,9 +63,22 @@ export class AudioCues {
   _speak(text, interrupt) {
     if (!this._synth) return;
     if (interrupt) this._synth.cancel();
-    const utt   = new SpeechSynthesisUtterance(text);
+    const utt   = new SpeechSynthesisUtterance(this._sanitize(text));
     utt.rate    = 1.1;
     utt.pitch   = 1.0;
     this._synth.speak(utt);
+  }
+
+  _sanitize(text) {
+    return text
+      .replace(/RW(\d+)/g,         'runway $1')      // RW12 → runway 12
+      .replace(/(\d+)\s*kts/gi,    '$1 knots')        // 90 kts → 90 knots
+      .replace(/(\d+)\s*ft\b/gi,   '$1 feet')         // 2500 ft → 2500 feet
+      .replace(/\bMSL\b/g,         '')                // drop MSL
+      .replace(/\bAGL\b/g,         '')                // drop AGL
+      .replace(/°/g,               ' degrees')        // ° → degrees
+      .replace(/\([A-Z]\)/g,       '')                // remove key hints like (B)
+      .replace(/\s{2,}/g,          ' ')               // collapse extra spaces
+      .trim();
   }
 }
