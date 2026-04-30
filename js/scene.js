@@ -385,30 +385,22 @@ export class SceneManager {
       this._patternGuide = null;
     }
 
-    const elev   = airport.elevation;
-    const patY   = patternAltMSL;
-    const patAGL = patternAltMSL - elev;
+    const elev       = airport.elevation;
+    const patY       = patternAltMSL;
+    const patAGL     = patY - elev;
     const landingHdg = endHeading(runway, activeEnd.id);
 
-    // Scale pattern geometry to aircraft speed.
-    // speedF=1 for ~90 kt trainers, speedF=2 for ~180 kt turbines.
     const dwSpeed = ac?.speeds?.downwind ?? 90;
     const speedF  = dwSpeed / 90;
 
-    // 3° glidepath: altitude (ft AGL above elev) at distance d (ft) from threshold
-    const SLOPE  = Math.tan(3 * Math.PI / 180);   // ≈ 0.0524
-    const gda    = d => elev + 50 + d * SLOPE;
+    // 3° glidepath altitude at distance d (ft) from threshold
+    const SLOPE     = Math.tan(3 * Math.PI / 180);   // ≈ 0.0524
+    const gda       = d => elev + 50 + d * SLOPE;
 
-    const OFFSET    = Math.round(4500 * speedF);   // downwind offset from centerline
-    const PAST_THR  = Math.round(4500 * speedF);   // base-to-final turn before threshold
-    const TURN_R    = Math.round(1500 * speedF);   // corner turn radius
-    const N_ARC     = Math.round(16 * Math.sqrt(speedF)); // arc smoothness
-    // Extended final: exactly the distance needed for a 3° descent from patY to threshold
+    const OFFSET    = Math.round(4500 * speedF);
+    const PAST_THR  = Math.round(4500 * speedF);
+    const TURN_R    = Math.round(1500 * speedF);
     const FINAL_EXT = Math.max(6000, Math.round(patAGL / SLOPE) - PAST_THR);
-
-    // Altitude of key final-approach points (on the 3° glidepath)
-    const finCorAlt = Math.min(patY - 80, gda(PAST_THR));   // altitude at base-to-final turn
-    const outerAlt  = Math.min(patY, gda(PAST_THR + FINAL_EXT));  // ≈ patY
 
     const rwyVec  = headingVec(landingHdg);
     const downDir = headingVec((landingHdg + 180) % 360);
@@ -420,98 +412,88 @@ export class SceneManager {
     const dptX = thr.x + rwyVec.x * runway.length;
     const dptZ = thr.z + rwyVec.z * runway.length;
 
-    // Corner waypoints
-    const pDW    = new THREE.Vector3(dptX + perpVec.x * OFFSET, patY,
-                                     dptZ + perpVec.z * OFFSET);
-    const pBase  = new THREE.Vector3(thr.x + downDir.x * PAST_THR + perpVec.x * OFFSET, patY,
-                                     thr.z + downDir.z * PAST_THR + perpVec.z * OFFSET);
-    const pFinal = new THREE.Vector3(thr.x + downDir.x * PAST_THR, finCorAlt,
-                                     thr.z + downDir.z * PAST_THR);
-    const pOuter = new THREE.Vector3(thr.x - rwyVec.x * (PAST_THR + FINAL_EXT), outerAlt,
-                                     thr.z - rwyVec.z * (PAST_THR + FINAL_EXT));
-    const pThr   = new THREE.Vector3(thr.x, elev + 50, thr.z);
+    // Horizontal leg unit vectors
+    const dn = { x: downDir.x, z: downDir.z };     // downwind direction
+    const bs = { x: -perpVec.x, z: -perpVec.z };   // base direction (toward CL)
+    const fn = { x: rwyVec.x,  z: rwyVec.z };      // final/landing direction
 
-    // Leg direction unit vectors (horizontal)
-    const dnVec = new THREE.Vector3(downDir.x, 0, downDir.z);
-    const bsVec = new THREE.Vector3(-perpVec.x, 0, -perpVec.z);
-    const fnVec = new THREE.Vector3(rwyVec.x, 0, rwyVec.z);
-
-    // Generate N+1 points along the true circular arc of a 90° turn.
-    // Arc centre for perpendicular inDir/outDir: corner + (outDir − inDir) * R
-    const circArc = (corner, inDir, outDir, R, N = 14) => {
-      const cx = corner.x + (outDir.x - inDir.x) * R;
-      const cz = corner.z + (outDir.z - inDir.z) * R;
-      const sa = Math.atan2(-outDir.z, -outDir.x);
-      const ea = Math.atan2( inDir.z,   inDir.x);
-      let da = ea - sa;
-      if (da >  Math.PI) da -= 2 * Math.PI;
-      if (da < -Math.PI) da += 2 * Math.PI;
-      return Array.from({ length: N + 1 }, (_, i) => {
-        const a = sa + da * (i / N);
-        return new THREE.Vector3(cx + Math.cos(a) * R, corner.y, cz + Math.sin(a) * R);
-      });
-    };
-
-    // Higher arc resolution for smooth curves
-    const N_ARC2 = Math.round(28 * Math.sqrt(speedF));
-    const baseArc  = circArc(pBase,  dnVec, bsVec, TURN_R, N_ARC2);
-    const finalArc = circArc(pFinal, bsVec, fnVec, TURN_R, N_ARC2);
-
-    // Abeam-threshold point on downwind — this is where the pilot starts descent
-    const pAbeam = new THREE.Vector3(
-      thr.x + perpVec.x * OFFSET, patY, thr.z + perpVec.z * OFFSET
-    );
-
-    const lerp3 = (a, b, t) => new THREE.Vector3(
-      a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t
-    );
-
-    // ── Single continuous control-point list ────────────────────
-    // Many collinear intermediate points on straight legs keep
-    // CatmullRomCurve3 from bowing them into unwanted curves.
-    const nMid = 10;
-    const pts  = [];
-    const addSeg = (a, b, n) => {
-      for (let i = 0; i <= n; i++) pts.push(lerp3(a, b, i / n));
-    };
-
-    addSeg(pDW, pAbeam, nMid);                                  // upper downwind
-    addSeg(pAbeam, baseArc[0], nMid);                           // lower downwind
-    baseArc.forEach(p => pts.push(p.clone()));                  // downwind→base turn
-    addSeg(baseArc[baseArc.length - 1], finalArc[0], nMid);     // base leg
-    finalArc.forEach(p => pts.push(p.clone()));                 // base→final turn
-    addSeg(finalArc[finalArc.length - 1], pThr, nMid);          // final approach
+    // Virtual corners where straight legs would intersect (no rounding)
+    const baseCorner  = { x: thr.x + dn.x * PAST_THR + perpVec.x * OFFSET,
+                          z: thr.z + dn.z * PAST_THR + perpVec.z * OFFSET };
+    const finalCorner = { x: thr.x + dn.x * PAST_THR,
+                          z: thr.z + dn.z * PAST_THR };
 
     // ── Altitude profile ─────────────────────────────────────────
-    // Level on the upper downwind; smooth S-curve descent from the
-    // abeam point all the way to the threshold.
-    const abeamIdx = nMid;          // index of pAbeam in pts[]
-    const lastIdx  = pts.length - 1;
-    pts.forEach((pt, i) => {
-      if (i <= abeamIdx) {
-        pt.y = patY;
-      } else {
-        const t    = (i - abeamIdx) / (lastIdx - abeamIdx);
-        const ease = t * t * (3 - 2 * t);                      // smoothstep
-        pt.y = patY + (elev + 50 - patY) * ease;
-      }
-    });
+    // Final approach: exactly on the 3° glidepath (matches PAPI).
+    // Descent from abeam to final arc exit: smooth S-curve into the glidepath.
+    const yFinalOut = gda(PAST_THR - TURN_R);   // on 3° glidepath at final arc exit
 
+    // Arc-length distances from abeam to each junction
+    const ARC     = Math.PI / 2 * TURN_R;       // quarter-circle arc length
+    const dBaseIn   = PAST_THR - TURN_R;
+    const dBaseOut  = dBaseIn  + ARC;
+    const dFinalIn  = dBaseOut + (OFFSET - 2 * TURN_R);
+    const dFinalOut = dFinalIn + ARC;
+
+    // Smoothstep descent from patY to yFinalOut over the pre-final portion
+    const altTo = (d) => {
+      const t    = Math.min(1, d / dFinalOut);
+      const ease = t * t * (3 - 2 * t);
+      return patY + (yFinalOut - patY) * ease;
+    };
+
+    const yAbeam    = patY;
+    const yBaseIn   = altTo(dBaseIn);
+    const yBaseOut  = altTo(dBaseOut);
+    const yFinalIn  = altTo(dFinalIn);
+    const yThr      = elev + 50;
+    const yOuter    = Math.min(patY, gda(PAST_THR + FINAL_EXT));
+
+    // ── Helpers ───────────────────────────────────────────────────
+    const v3   = (x, y, z) => new THREE.Vector3(x, y, z);
+    const line = (a, b)    => new THREE.LineCurve3(a, b);
+
+    // Cubic bezier approximation of a 90° arc (k = optimal handle length)
+    const k = 0.5523 * TURN_R;
+    const arcTurn = (p0, p3, inD, outD) => {
+      const cp1 = v3(p0.x + inD.x  * k, (p0.y * 2 + p3.y) / 3, p0.z + inD.z  * k);
+      const cp2 = v3(p3.x - outD.x * k, (p0.y + p3.y * 2) / 3, p3.z - outD.z * k);
+      return new THREE.CubicBezierCurve3(p0, cp1, cp2, p3);
+    };
+
+    // ── Key waypoints ─────────────────────────────────────────────
+    const pDW       = v3(dptX + perpVec.x * OFFSET,              patY,      dptZ + perpVec.z * OFFSET);
+    const pAbeam    = v3(thr.x + perpVec.x * OFFSET,             yAbeam,    thr.z + perpVec.z * OFFSET);
+    const pBaseIn   = v3(baseCorner.x  - dn.x * TURN_R,          yBaseIn,   baseCorner.z  - dn.z * TURN_R);
+    const pBaseOut  = v3(baseCorner.x  + bs.x * TURN_R,          yBaseOut,  baseCorner.z  + bs.z * TURN_R);
+    const pFinalIn  = v3(finalCorner.x - bs.x * TURN_R,          yFinalIn,  finalCorner.z - bs.z * TURN_R);
+    const pFinalOut = v3(finalCorner.x + fn.x * TURN_R,          yFinalOut, finalCorner.z + fn.z * TURN_R);
+    const pThr      = v3(thr.x,                                  yThr,      thr.z);
+    const pOuter    = v3(thr.x - rwyVec.x * (PAST_THR + FINAL_EXT), yOuter, thr.z - rwyVec.z * (PAST_THR + FINAL_EXT));
+
+    // ── CurvePath: LineCurve3 legs + CubicBezierCurve3 corners ───
+    // No CatmullRom — perfectly smooth G1 continuity everywhere.
+    const path = new THREE.CurvePath();
+    path.add(line(pDW,      pAbeam));                         // upper downwind (level)
+    path.add(line(pAbeam,   pBaseIn));                        // lower downwind (gentle descent)
+    path.add(arcTurn(pBaseIn,  pBaseOut,  dn, bs));           // downwind→base turn
+    path.add(line(pBaseOut, pFinalIn));                       // base leg
+    path.add(arcTurn(pFinalIn, pFinalOut, bs, fn));           // base→final turn
+    path.add(line(pFinalOut, pThr));                          // final: exactly on 3° glidepath
+
+    // ── Geometry ──────────────────────────────────────────────────
     const group = new THREE.Group();
 
-    // ── Single continuous tube ───────────────────────────────────
-    const mainCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-    const mainSegs  = Math.max(200, pts.length * 6);
     group.add(new THREE.Mesh(
-      new THREE.TubeGeometry(mainCurve, mainSegs, 18, 8, false),
+      new THREE.TubeGeometry(path, 200, 18, 8, false),
       new THREE.MeshBasicMaterial({ color: 0x44CCFF, transparent: true, opacity: 0.42 })
     ));
 
-    // Direction arrows evenly spaced along the full curve
+    // Direction arrows evenly spaced along the path
     for (let i = 1; i <= 5; i++) {
       const t   = i / 6;
-      const pos = mainCurve.getPointAt(t);
-      const tan = mainCurve.getTangentAt(t).normalize();
+      const pos = path.getPointAt(t);
+      const tan = path.getTangentAt(t).normalize();
       const m   = new THREE.Mesh(
         new THREE.ConeGeometry(28, 90, 6),
         new THREE.MeshBasicMaterial({ color: 0x44CCFF, transparent: true, opacity: 0.50 })
@@ -521,15 +503,13 @@ export class SceneManager {
       group.add(m);
     }
 
-    // Extended final guide (white, dimmed) on the 3° glide slope
-    const extPath = new THREE.CurvePath();
-    extPath.add(new THREE.LineCurve3(pOuter, pts[lastIdx - nMid]));
+    // Extended final guide (white, dimmed) — also on exact 3° glidepath
     group.add(new THREE.Mesh(
-      new THREE.TubeGeometry(extPath, 20, 12, 8, false),
+      new THREE.TubeGeometry(new THREE.LineCurve3(pOuter, pFinalOut), 20, 12, 8, false),
       new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.18 })
     ));
 
-    // Waypoint nodes — entry, abeam, threshold
+    // Waypoint nodes: entry, abeam, threshold
     const addNode = (p, color, r = 50) => {
       const m = new THREE.Mesh(
         new THREE.SphereGeometry(r, 8, 6),
@@ -538,9 +518,9 @@ export class SceneManager {
       m.position.copy(p);
       group.add(m);
     };
-    addNode(pDW,   0x44CCFF);
-    addNode(pAbeam.clone().setY(patY), 0xFFE000, 40);
-    addNode(pThr,  0xFF3333, 35);
+    addNode(pDW,    0x44CCFF);
+    addNode(pAbeam, 0xFFE000, 40);
+    addNode(pThr,   0xFF3333, 35);
 
     group.visible = false;
     this._patternGuide = group;
