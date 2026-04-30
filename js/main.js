@@ -56,7 +56,7 @@ async function _startFlight() {
   const acData  = AIRCRAFT[state.selectedAircraft.id];
   const sc      = state.selectedScenario;
 
-  if (ac) ac.dispose();
+  if (ac) { ac.dispose(); ac = null; }  // null so _tick() skips while loading
 
   // Re-init pattern checker
   checker.phase = PHASES.CRUISE;
