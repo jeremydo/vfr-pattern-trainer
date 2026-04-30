@@ -135,7 +135,10 @@ export class AudioCues {
 
   _sanitize(text) {
     return text
-      .replace(/RW(\d+)/g, (_, n) => 'runway ' + this._rwyDigits(n))  // RW13 → runway one three
+      .replace(/RW(\d+)([LRC])?/gi, (_, n, s) => {                    // RW28L → runway two eight left
+        const suffix = { L:'left', R:'right', C:'center' };
+        return 'runway ' + this._rwyDigits(n) + (s ? ' ' + (suffix[s.toUpperCase()] ?? s) : '');
+      })
       .replace(/(\d+)\s*kts/gi,    '$1 knots')        // 90 kts → 90 knots
       .replace(/(\d+)\s*ft\b/gi,   '$1 feet')         // 2500 ft → 2500 feet
       .replace(/\bMSL\b/g,         '')                // drop MSL
