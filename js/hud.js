@@ -16,7 +16,13 @@ const C = {
 };
 
 export class HUD {
-  constructor() { this._cvs = null; this._ctx = null; this._W = 0; this._H = 0; }
+  constructor() {
+    this._cvs        = null;
+    this._ctx        = null;
+    this._W          = 0;
+    this._H          = 0;
+    this._scoreFlash = null;   // { points, label, expires }
+  }
 
   _init() {
     if (this._cvs) return;
@@ -79,6 +85,12 @@ export class HUD {
     this._aiOverlay(ctx,  aiX,           aiY,   aiW,    aiH,   aircraft);
     this._hdgTape(ctx,    aiX,           hdgY,  aiW,    hdgH,  aircraft, scenario, checker);
     this._topBar(ctx,     SX, SW,        SH,    checker, aircraft, guideVisible, turbo, elev, scenario, audioMuted);
+
+    // Capture waypoint events for the score flash
+    if (checker.scoreEvents?.length) {
+      const ev = checker.scoreEvents.find(e => e.points > 0) ?? checker.scoreEvents[0];
+      this._scoreFlash = { points: ev.points, label: ev.label, expires: Date.now() + 2200 };
+    }
 
     // Guidance + warnings below the strip
     this._overlays(ctx, W, SH, checker);
@@ -531,6 +543,40 @@ export class HUD {
 
   // ── Guidance + warnings (float below strip) ──────────────────────
   _overlays(ctx, W, stripY, checker) {
+    // Live score — right side, just below strip
+    const score = Math.floor(checker.liveScore ?? 0);
+    const sx = W - 114, sy = stripY + 6, sw = 108, sh = 46;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.fillStyle = C.gray; ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('SCORE', sx + sw / 2, sy + 4);
+    ctx.fillStyle = score > 0 ? C.green : C.gray;
+    ctx.font = `bold 22px monospace`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(score.toLocaleString(), sx + sw / 2, sy + sh * 0.67);
+
+    // Score flash (waypoint bonus)
+    if (this._scoreFlash && Date.now() < this._scoreFlash.expires) {
+      const age  = 1 - (this._scoreFlash.expires - Date.now()) / 2200;
+      const fade = age > 0.7 ? 1 - (age - 0.7) / 0.3 : 1;
+      const rise = Math.min(1, age * 4) * 18;   // float upward
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = C.yellow;
+      ctx.font = 'bold 15px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (this._scoreFlash.points > 0)
+        ctx.fillText(`+${this._scoreFlash.points}`, sx + sw / 2, sy - 10 - rise);
+      ctx.fillStyle = C.white;
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText(this._scoreFlash.label, sx + sw / 2, sy + 8 - rise);
+      ctx.globalAlpha = 1;
+    } else {
+      this._scoreFlash = null;
+    }
+
     // Guidance bar
     if (checker.guidance) {
       const gh=28, gy=stripY+6;

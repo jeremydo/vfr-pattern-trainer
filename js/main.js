@@ -65,6 +65,9 @@ async function _startFlight() {
   checker._downwindAltErrs  = [];
   checker._finalSpeedErrs   = [];
   checker._touchdownMetrics = null;
+  checker.liveScore          = 0;
+  checker.scoreEvents        = [];
+  checker._lastPhaseForScore = null;
   audioCues.reset();
 
   // Scene setup
@@ -159,10 +162,11 @@ function _tick(dt) {
     if (ac.position.y < terrainElev - 30) { _crashFlight(); return; }
   }
 
-  const { glidepath } = checker.update(ac, apt, rwy, end, sc);
+  const { glidepath } = checker.update(ac, apt, rwy, end, sc, dt);
   if (glidepath > 0) airport.updatePAPI(end.id, glidepath);
 
   audioCues.update(checker, dt);
+  if (checker.scoreEvents.length) audioCues.ping();
   hud.update(ac, state, checker, sc, guideVisible, ctrl.turbo, audioCues.muted);
   state.phase = checker.phase;
 

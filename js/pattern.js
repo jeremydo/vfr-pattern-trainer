@@ -16,10 +16,14 @@ export class PatternChecker {
     this._downwindAltErrs  = [];
     this._finalSpeedErrs   = [];
     this._touchdownMetrics = null;
+    this.liveScore          = 0;
+    this.scoreEvents        = [];   // [{points, label}] cleared each tick
+    this._lastPhaseForScore = null;
   }
 
-  update(aircraft, airport, runway, activeEnd, scenario) {
-    this.warnings = [];
+  update(aircraft, airport, runway, activeEnd, scenario, dt = 0) {
+    this.warnings    = [];
+    this.scoreEvents = [];
     const elev       = airport.elevation;
     const agl        = aircraft.position.y - elev;
     const isTurbine  = aircraft.data.type === 'turbine';
@@ -114,7 +118,53 @@ export class PatternChecker {
       this.warnings.push('STALL WARNING');
 
     this.guidance = this._buildGuidance(phase, aircraft, airport, activeEnd, patAltMSL, vrefSpd, crosswind);
+
+    // --- Live score: continuous points per second ---
+    if (dt > 0) {
+      if (phase === PHASES.DOWNWIND) {
+        const absAlt = Math.abs(aircraft.position.y - patAltMSL);
+        if (absAlt < 200) this.liveScore += (absAlt < 50 ? 12 : 6) * dt;
+        if (Math.abs(aircraft.airspeed - aircraft.data.speeds.downwind) < 15) this.liveScore += 5 * dt;
+      }
+      if (phase === PHASES.BASE) {
+        if (Math.abs(aircraft.airspeed - aircraft.data.speeds.base) < 15) this.liveScore += 6 * dt;
+        if (aircraft.flaps > 0) this.liveScore += 4 * dt;
+      }
+      if (phase === PHASES.FINAL) {
+        if (Math.abs(aircraft.airspeed - vrefSpd) < 10) this.liveScore += 10 * dt;
+        if (aircraft.data.gear === 'fixed' || aircraft.gearDown)  this.liveScore += 6 * dt;
+        if (aircraft.flaps >= aircraft.data.flaps.length - 1)     this.liveScore += 5 * dt;
+        if (glidepath >= 2.0 && glidepath <= 4.0)                 this.liveScore += 10 * dt;
+      }
+    }
+
+    // --- Waypoint bonuses: fire once on each phase transition ---
+    if (phase !== this._lastPhaseForScore) {
+      if (phase === PHASES.DOWNWIND) {
+        if (Math.abs(aircraft.position.y - patAltMSL) < 300)
+          this._addEvent(100, 'Pattern entry!');
+      } else if (phase === PHASES.BASE) {
+        if (aircraft.airspeed <= aircraft.data.speeds.downwind + 20) {
+          const flapsOk = aircraft.flaps > 0 || aircraft.data.flaps.length <= 2;
+          this._addEvent(flapsOk ? 150 : 75, 'Base turn!');
+        }
+      } else if (phase === PHASES.FINAL) {
+        const gearOk = aircraft.data.gear === 'fixed' || aircraft.gearDown;
+        const spdOk  = aircraft.airspeed <= vrefSpd + 20;
+        if (gearOk && spdOk) this._addEvent(200, 'Final approach!');
+        else if (spdOk)      this._addEvent(50,  'Final approach');
+      } else if (phase === PHASES.LANDED) {
+        this._addEvent(0, 'Landed!');   // landing bonus is added in score()
+      }
+      this._lastPhaseForScore = phase;
+    }
+
     return { glidepath };
+  }
+
+  _addEvent(points, label) {
+    if (points > 0) this.liveScore += points;
+    this.scoreEvents.push({ points, label });
   }
 
   _buildGuidance(phase, aircraft, airport, activeEnd, patAltMSL, vrefSpd, xwind) {

@@ -5,10 +5,35 @@
 export class AudioCues {
   constructor() {
     this._synth     = window.speechSynthesis ?? null;
+    this._audioCtx  = null;
     this.muted      = false;
     this._lastPhase = null;
     this._lastWarn  = '';   // text of the last warning spoken
     this._warnTimer = 0;    // seconds until the same warning may repeat
+  }
+
+  // Two-note ascending chime played via Web Audio API.
+  ping() {
+    if (this.muted) return;
+    try {
+      if (!this._audioCtx)
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = this._audioCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      for (const [freq, delay] of [[523.25, 0], [659.25, 0.13]]) {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + delay);
+        gain.gain.linearRampToValueAtTime(0.22, now + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.38);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.4);
+      }
+    } catch (_) {}
   }
 
   // Call once per tick from the main loop.
