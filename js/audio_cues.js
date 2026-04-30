@@ -127,9 +127,15 @@ export class AudioCues {
     this._synth.speak(utt);
   }
 
+  _rwyDigits(num) {
+    const words = { '0':'zero','1':'one','2':'two','3':'three','4':'four',
+                    '5':'five','6':'six','7':'seven','8':'eight','9':'niner' };
+    return [...num].map(d => words[d] ?? d).join(' ');
+  }
+
   _sanitize(text) {
     return text
-      .replace(/RW(\d+)/g,         'runway $1')      // RW12 → runway 12
+      .replace(/RW(\d+)/g, (_, n) => 'runway ' + this._rwyDigits(n))  // RW13 → runway one three
       .replace(/(\d+)\s*kts/gi,    '$1 knots')        // 90 kts → 90 knots
       .replace(/(\d+)\s*ft\b/gi,   '$1 feet')         // 2500 ft → 2500 feet
       .replace(/\bMSL\b/g,         '')                // drop MSL
