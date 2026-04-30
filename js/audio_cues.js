@@ -4,12 +4,13 @@
 
 export class AudioCues {
   constructor() {
-    this._synth     = window.speechSynthesis ?? null;
-    this._audioCtx  = null;
-    this.muted      = false;
-    this._lastPhase = null;
-    this._lastWarn  = '';   // text of the last warning spoken
-    this._warnTimer = 0;    // seconds until the same warning may repeat
+    this._synth      = window.speechSynthesis ?? null;
+    this._audioCtx   = null;
+    this.muted       = false;
+    this._lastPhase  = null;
+    this._lastWarn   = '';   // text of the last warning spoken
+    this._warnTimer  = 0;    // seconds until the same warning may repeat
+    this._ringCount  = 0;    // how many rings have played so far this flight
   }
 
   // Two-note ascending chime played via Web Audio API.
@@ -39,6 +40,13 @@ export class AudioCues {
   // Call once per tick from the main loop.
   update(checker, dt) {
     this._warnTimer = Math.max(0, this._warnTimer - dt);
+
+    // Ring feedback: one ring per 25 points accumulated (Sonic-style)
+    const dueRings = Math.floor((checker.liveScore ?? 0) / 25);
+    if (dueRings > this._ringCount) {
+      this._ringCount = dueRings;
+      if (!this.muted) this._ring();
+    }
 
     if (!this._synth) return;
 
@@ -83,6 +91,31 @@ export class AudioCues {
     this._lastPhase = null;
     this._lastWarn  = '';
     this._warnTimer = 0;
+    this._ringCount = 0;
+  }
+
+  // Short bright ring — plays on every 25 pts accumulated.
+  // Two sine partials (fundamental + fifth) for a metallic "ting" quality.
+  _ring() {
+    try {
+      if (!this._audioCtx)
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = this._audioCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      for (const [freq, vol] of [[1047, 0.18], [1568, 0.09]]) {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(vol, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+    } catch (_) {}
   }
 
   _speak(text, interrupt) {
