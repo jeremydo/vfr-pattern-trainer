@@ -131,6 +131,61 @@ export class UI {
     s.selectedEnd    = end;
   }
 
+  _windExplanation(sc, end) {
+    const landingHdg = parseInt(end.id) * 10;
+    const { headwind, crosswind } = windComponents(sc, landingHdg);
+    const absXW = Math.round(Math.abs(crosswind));
+    const absHW = Math.round(Math.abs(headwind));
+    const xwSide = crosswind >= 0 ? 'right' : 'left';
+    const isTailwind = headwind < -1;
+
+    if (sc.windSpeed === 0) {
+      return `With calm winds, any runway works equally well — <strong>runway ${end.id}</strong> was selected by default. No crosswind or headwind to worry about.`;
+    }
+
+    // Angle of wind relative to runway (–180 … +180)
+    let rel = ((sc.windFrom - landingHdg) + 360) % 360;
+    if (rel > 180) rel -= 360;
+    const abs = Math.abs(rel);
+
+    // Plain-English description of where the wind is coming from
+    const fromDesc = abs < 15  ? 'almost straight down the runway toward you' :
+                     abs < 45  ? `at a shallow angle from the ${xwSide}` :
+                     abs < 75  ? `at about 45° from your ${xwSide} side` :
+                     abs < 110 ? `almost directly from the ${xwSide}` :
+                     abs < 150 ? `from behind and to your ${xwSide}` :
+                                 'almost directly from behind (a tailwind)';
+
+    // Why this runway was picked
+    const ruwnayReason = isTailwind
+      ? `Runway <strong>${end.id}</strong> was chosen as the least-bad option — the tailwind is unavoidable given current winds. Expect a faster approach and longer ground roll.`
+      : `<strong>Runway ${end.id}</strong> was chosen because it puts the most wind in your face. Landing into wind reduces your groundspeed, shortens your landing roll, and gives you better control.`;
+
+    // Crosswind intensity label
+    const xwLabel = absXW <  2 ? 'almost no crosswind' :
+                    absXW <  6 ? `a light crosswind` :
+                    absXW < 11 ? `a moderate crosswind` :
+                    absXW < 16 ? `a strong crosswind` :
+                                 `a very strong crosswind`;
+
+    // Headwind contribution sentence
+    const hwSentence = isTailwind
+      ? (absHW < 2 ? '' : ` You also have a <strong>${absHW}-knot tailwind</strong> component — your groundspeed on final will be higher than your airspeed, so expect to float further down the runway.`)
+      : (absHW < 2 ? ` There is almost no headwind component.`
+                   : ` The remaining <strong>${absHW} knots</strong> is a headwind component — it hits you straight in the face, slowing you down and shortening your landing roll.`);
+
+    // How crosswind is calculated (plain English, no trig)
+    const mechLine = absXW < 2
+      ? `Because the wind is nearly aligned with the runway, almost all of it becomes headwind — very little pushes you sideways.`
+      : `Think of it this way: as you fly down the runway, the wind's total strength (${sc.windSpeed} knots) splits into two parts — the part that hits your side (the crosswind) and the part that hits your face (the headwind). The more the wind direction differs from the runway heading, the bigger the sideways push.`;
+
+    return `The wind is <strong>${sc.windSpeed}${sc.windGust ? ' gusting ' + sc.windGust : ''} knots from ${String(sc.windFrom).padStart(3,'0')}°</strong> — ${fromDesc}. ${ruwnayReason}
+      <br><br>
+      When you land, expect ${xwLabel} of <strong>${absXW} knots from your ${xwSide}</strong>.${hwSentence}
+      <br><br>
+      <em>${mechLine}</em>`;
+  }
+
   renderBriefing() {
     const s   = this.state;
     const apt = s.selectedAirport;
@@ -179,6 +234,10 @@ export class UI {
             <div class="brief-line">Vref: <strong>${vrefKts} kts</strong>${gust?` (+${gust} gusts)`:''}</div>
             <div class="brief-line">Stall (flap/clean): ${ac.vs0} / ${ac.vs1} kts</div>
           </div>
+        </div>
+        <div class="procedure-box" style="background:rgba(30,60,90,0.35);border-color:rgba(100,160,220,0.35);margin-bottom:10px">
+          <div class="section-label" style="color:#7EC8F0">Wind Analysis</div>
+          <p style="margin:8px 0 0;line-height:1.6;color:#ddd;font-size:0.88rem">${this._windExplanation(sc, end)}</p>
         </div>
         <div class="procedure-box">
           <div class="section-label">Standard Entry — 45° to ${end.pattern==='L'?'Left':'Right'} Downwind</div>
