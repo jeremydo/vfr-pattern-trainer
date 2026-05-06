@@ -134,56 +134,51 @@ export class UI {
   _windExplanation(sc, end) {
     const landingHdg = parseInt(end.id) * 10;
     const { headwind, crosswind } = windComponents(sc, landingHdg);
-    const absXW = Math.round(Math.abs(crosswind));
-    const absHW = Math.round(Math.abs(headwind));
+    const absXW  = Math.round(Math.abs(crosswind));
+    const absHW  = Math.round(Math.abs(headwind));
     const xwSide = crosswind >= 0 ? 'right' : 'left';
+    const oppSide= crosswind >= 0 ? 'left'  : 'right';
     const isTailwind = headwind < -1;
 
     if (sc.windSpeed === 0) {
-      return `With calm winds, any runway works equally well — <strong>runway ${end.id}</strong> was selected by default. No crosswind or headwind to worry about.`;
+      return `Calm winds — any runway is fine. <strong>Runway ${end.id}</strong> was selected by default. No crosswind or headwind corrections needed.`;
     }
 
-    // Angle of wind relative to runway (–180 … +180)
+    // Relative angle –180…+180
     let rel = ((sc.windFrom - landingHdg) + 360) % 360;
     if (rel > 180) rel -= 360;
-    const abs = Math.abs(rel);
+    const absRel = Math.abs(rel);
 
-    // Plain-English description of where the wind is coming from
-    const fromDesc = abs < 15  ? 'almost straight down the runway toward you' :
-                     abs < 45  ? `at a shallow angle from the ${xwSide}` :
-                     abs < 75  ? `at about 45° from your ${xwSide} side` :
-                     abs < 110 ? `almost directly from the ${xwSide}` :
-                     abs < 150 ? `from behind and to your ${xwSide}` :
-                                 'almost directly from behind (a tailwind)';
+    const fromDesc = absRel < 15  ? 'nearly straight down the runway'
+                   : absRel < 50  ? `at a shallow angle from the ${xwSide}`
+                   : absRel < 80  ? `at roughly 45° from the ${xwSide}`
+                   : absRel < 110 ? `almost directly across from the ${xwSide}`
+                   : absRel < 150 ? `from behind on the ${xwSide} side`
+                   :                'almost directly from behind';
 
-    // Why this runway was picked
-    const ruwnayReason = isTailwind
-      ? `Runway <strong>${end.id}</strong> was chosen as the least-bad option — the tailwind is unavoidable given current winds. Expect a faster approach and longer ground roll.`
-      : `<strong>Runway ${end.id}</strong> was chosen because it puts the most wind in your face. Landing into wind reduces your groundspeed, shortens your landing roll, and gives you better control.`;
+    const xwLabel = absXW <  3 ? 'minimal' : absXW < 7 ? 'light' : absXW < 12 ? 'moderate' : absXW < 17 ? 'strong' : 'very strong';
 
-    // Crosswind intensity label
-    const xwLabel = absXW <  2 ? 'almost no crosswind' :
-                    absXW <  6 ? `a light crosswind` :
-                    absXW < 11 ? `a moderate crosswind` :
-                    absXW < 16 ? `a strong crosswind` :
-                                 `a very strong crosswind`;
+    // Runway selection + components
+    const selLine = isTailwind
+      ? `<strong>Runway ${end.id}</strong> is the least-bad option — some tailwind is unavoidable. Expect higher approach groundspeed and a longer roll.`
+      : `<strong>Runway ${end.id}</strong> maximises headwind, which slows your groundspeed and shortens the roll.`;
 
-    // Headwind contribution sentence
-    const hwSentence = isTailwind
-      ? (absHW < 2 ? '' : ` You also have a <strong>${absHW}-knot tailwind</strong> component — your groundspeed on final will be higher than your airspeed, so expect to float further down the runway.`)
-      : (absHW < 2 ? ` There is almost no headwind component.`
-                   : ` The remaining <strong>${absHW} knots</strong> is a headwind component — it hits you straight in the face, slowing you down and shortening your landing roll.`);
+    const compLine = isTailwind
+      ? `The wind (${sc.windSpeed}${sc.windGust ? 'G' + sc.windGust : ''} kts from ${String(sc.windFrom).padStart(3,'0')}°) is ${fromDesc} — giving you a <strong>${absHW}-kt tailwind</strong>${absXW > 1 ? ` and a <strong>${absXW}-kt crosswind from the ${xwSide}</strong>` : ''}.`
+      : `The wind (${sc.windSpeed}${sc.windGust ? 'G' + sc.windGust : ''} kts from ${String(sc.windFrom).padStart(3,'0')}°) is ${fromDesc} — splitting into a <strong>${absHW}-kt headwind</strong> and a <strong>${xwLabel} ${absXW}-kt crosswind from the ${xwSide}</strong>. The headwind slows you down; the crosswind pushes you sideways off the centreline.`;
 
-    // How crosswind is calculated (plain English, no trig)
-    const mechLine = absXW < 2
-      ? `Because the wind is nearly aligned with the runway, almost all of it becomes headwind — very little pushes you sideways.`
-      : `Think of it this way: as you fly down the runway, the wind's total strength (${sc.windSpeed} knots) splits into two parts — the part that hits your side (the crosswind) and the part that hits your face (the headwind). The more the wind direction differs from the runway heading, the bigger the sideways push.`;
+    // Controls at landing
+    let ctrlLine;
+    if (isTailwind) {
+      ctrlLine = `Controls: carry a few extra knots on final and be ready to brake firmly — your groundspeed at touchdown will be noticeably higher than your airspeed.`;
+    } else if (absXW < 3) {
+      ctrlLine = `Controls: no crosswind corrections needed — land normally.`;
+    } else {
+      const crabNote = absXW >= 9 ? ` On final, point the nose slightly into the wind (crab angle); then kick straight with ${oppSide} rudder just before the wheels touch.` : '';
+      ctrlLine = `Controls: hold <strong>${xwSide} aileron</strong> (tilt the yoke toward the wind) to keep the upwind wing from lifting and stop sideways drift. Use <strong>${oppSide} rudder</strong> to keep the nose pointed down the centreline.${crabNote}`;
+    }
 
-    return `The wind is <strong>${sc.windSpeed}${sc.windGust ? ' gusting ' + sc.windGust : ''} knots from ${String(sc.windFrom).padStart(3,'0')}°</strong> — ${fromDesc}. ${ruwnayReason}
-      <br><br>
-      When you land, expect ${xwLabel} of <strong>${absXW} knots from your ${xwSide}</strong>.${hwSentence}
-      <br><br>
-      <em>${mechLine}</em>`;
+    return `${selLine}<br><br>${compLine}<br><br><em>${ctrlLine}</em>`;
   }
 
   renderBriefing() {
