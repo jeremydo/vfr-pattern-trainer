@@ -131,7 +131,7 @@ export class UI {
     s.selectedEnd    = end;
   }
 
-  _windExplanation(sc, end) {
+  _windExplanation(sc, end, ac) {
     const landingHdg = parseInt(end.id) * 10;
     const { headwind, crosswind } = windComponents(sc, landingHdg);
     const absXW  = Math.round(Math.abs(crosswind));
@@ -167,6 +167,16 @@ export class UI {
       ? `The wind (${sc.windSpeed}${sc.windGust ? 'G' + sc.windGust : ''} kts from ${String(sc.windFrom).padStart(3,'0')}°) is ${fromDesc} — giving you a <strong>${absHW}-kt tailwind</strong>${absXW > 1 ? ` and a <strong>${absXW}-kt crosswind from the ${xwSide}</strong>` : ''}.`
       : `The wind (${sc.windSpeed}${sc.windGust ? 'G' + sc.windGust : ''} kts from ${String(sc.windFrom).padStart(3,'0')}°) is ${fromDesc} — splitting into a <strong>${absHW}-kt headwind</strong> and a <strong>${xwLabel} ${absXW}-kt crosswind from the ${xwSide}</strong>. The headwind slows you down; the crosswind pushes you sideways off the centreline.`;
 
+    // Aircraft-specific crosswind context
+    let acLine = '';
+    if (ac && ac.maxCrosswind && absXW > 2 && !isTailwind) {
+      const vrefKts = Math.round(ac.vs0 * 1.3);
+      const pct = Math.round(absXW / ac.maxCrosswind * 100);
+      const crabDeg = Math.round(Math.asin(Math.min(1, absXW / vrefKts)) * 180 / Math.PI);
+      const pctLabel = pct < 40 ? 'well within limits' : pct < 70 ? 'moderate for this aircraft' : pct < 90 ? 'challenging — stay sharp' : 'near the limit — consider a different runway or waiting';
+      acLine = `<br><br>For the <strong>${ac.name}</strong> (max demonstrated crosswind ${ac.maxCrosswind} kts, Vref ${vrefKts} kts): this ${absXW}-kt crosswind is <strong>${pct}% of its limit</strong> — ${pctLabel}. At Vref you'll need roughly <strong>${crabDeg}° of crab</strong> into the wind on final${ac.type === 'turbine' ? ` — less than a slower piston would need at the same crosswind, because the higher approach speed dilutes the wind's sideways effect` : ''}.`;
+    }
+
     // Controls at landing
     let ctrlLine;
     if (isTailwind) {
@@ -178,7 +188,7 @@ export class UI {
       ctrlLine = `Controls: hold <strong>${xwSide} aileron</strong> (tilt the yoke toward the wind) to keep the upwind wing from lifting and stop sideways drift. Use <strong>${oppSide} rudder</strong> to keep the nose pointed down the centreline.${crabNote}`;
     }
 
-    return `${selLine}<br><br>${compLine}<br><br><em>${ctrlLine}</em>`;
+    return `${selLine}<br><br>${compLine}${acLine}<br><br><em>${ctrlLine}</em>`;
   }
 
   renderBriefing() {
@@ -232,7 +242,7 @@ export class UI {
         </div>
         <div class="procedure-box" style="background:rgba(30,60,90,0.35);border-color:rgba(100,160,220,0.35);margin-bottom:10px">
           <div class="section-label" style="color:#7EC8F0">Wind Analysis</div>
-          <p style="margin:8px 0 0;line-height:1.6;color:#ddd;font-size:0.88rem">${this._windExplanation(sc, end)}</p>
+          <p style="margin:8px 0 0;line-height:1.6;color:#ddd;font-size:0.88rem">${this._windExplanation(sc, end, ac)}</p>
         </div>
         <div class="procedure-box">
           <div class="section-label">Standard Entry — 45° to ${end.pattern==='L'?'Left':'Right'} Downwind</div>

@@ -21,6 +21,7 @@ export const AIRCRAFT = {
     maxBank:   30,     // 30° = standard VFR pattern bank; gives ~0.3 nm turn radius
     flapDrag:  [0, 0.06, 0.14, 0.24], // fractional cruise-speed reduction per flap position
     gearDrag:  0,                      // fixed gear: drag already in baseline
+    maxCrosswind: 15,                  // max demonstrated crosswind (kts)
     color: { body: 0xFFFFFF, accent: 0xCC3333, gear: 0x444444 },
     wingHigh: true                     // high-wing aircraft
   },
@@ -44,6 +45,7 @@ export const AIRCRAFT = {
     maxBank:   30,
     flapDrag:  [0, 0.05, 0.13, 0.24],
     gearDrag:  0,
+    maxCrosswind: 15,
     color: { body: 0xF8F8F8, accent: 0x1A5B8C, gear: 0x444444 },
     wingHigh: true
   },
@@ -67,6 +69,7 @@ export const AIRCRAFT = {
     maxBank:   30,
     flapDrag:  [0, 0.04, 0.09, 0.15, 0.22],
     gearDrag:  0,
+    maxCrosswind: 15,
     color: { body: 0xF0F0F0, accent: 0xE05010, gear: 0x444444 },
     wingHigh: false
   },
@@ -90,6 +93,7 @@ export const AIRCRAFT = {
     maxBank:   30,
     flapDrag:  [0, 0.08, 0.20],
     gearDrag:  0,
+    maxCrosswind: 20,
     color: { body: 0xE8E8E8, accent: 0x1155AA, gear: 0x444444 },
     wingHigh: false
   },
@@ -114,6 +118,7 @@ export const AIRCRAFT = {
     maxBank:   35,     // turbine uses slightly steeper bank for a tighter high-speed pattern
     flapDrag:  [0, 0.05, 0.20],
     gearDrag:  0.10,
+    maxCrosswind: 30,
     color: { body: 0xF0F0F0, accent: 0x224488, gear: 0x333333 },
     wingHigh: false
   }
