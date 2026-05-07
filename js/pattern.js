@@ -168,7 +168,11 @@ export class PatternChecker {
   }
 
   _buildGuidance(phase, aircraft, airport, activeEnd, patAltMSL, vrefSpd, xwind) {
-    const ac = aircraft.data;
+    const ac     = aircraft.data;
+    const absXW  = Math.abs(xwind);
+    const xwSide = xwind >= 0 ? 'right' : 'left';
+    const oppSide= xwind >= 0 ? 'left'  : 'right';
+
     switch (phase) {
       case PHASES.CRUISE:
         return `Fly toward ${airport.id}. Descend to ${patAltMSL} ft MSL (pattern altitude).`;
@@ -178,10 +182,20 @@ export class PatternChecker {
         return `Downwind RW${activeEnd.id} — maintain ${patAltMSL} ft. Target ${ac.speeds.downwind} kts. Abeam the threshold: power back, flaps.`;
       case PHASES.BASE:
         return `Base leg — ${ac.speeds.base} kts, extend flaps${ac.gear === 'retractable' ? ', gear DOWN' : ''}. Don't overshoot final.`;
-      case PHASES.FINAL:
-        return `Final RW${activeEnd.id} — ${vrefSpd} kts${xwind > 3 ? `, crab ${Math.round(xwind * 0.7)}° into wind` : ''}. Full flaps. Aim for the numbers.`;
-      case PHASES.FLARE:
-        return 'Flare — idle power, raise nose slightly, let it settle.';
+      case PHASES.FINAL: {
+        const xwHint = absXW < 3
+          ? ''
+          : absXW < 8
+          ? ` Light crosswind from the ${xwSide} — hold a little ${xwSide} aileron to stay on centreline.`
+          : ` Crosswind from the ${xwSide} — aim your nose slightly ${xwSide} of the runway to track straight. Just before touchdown, use ${oppSide} rudder to straighten the nose.`;
+        return `Final RW${activeEnd.id} — ${vrefSpd} kts, full flaps.${xwHint} Aim for the numbers.`;
+      }
+      case PHASES.FLARE: {
+        const xwHint = absXW < 3
+          ? 'Flare — idle power, raise the nose slightly, let it settle.'
+          : `Flare — idle power. Lower the ${xwSide} wing with ${xwSide} aileron, use ${oppSide} rudder to keep the nose straight. Let it settle.`;
+        return xwHint;
+      }
       case PHASES.LANDED:
         return 'Landed — brakes (B) to slow down.';
       default:
