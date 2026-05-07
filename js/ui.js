@@ -174,7 +174,11 @@ export class UI {
       const pct = Math.round(absXW / ac.maxCrosswind * 100);
       const crabDeg = Math.round(Math.asin(Math.min(1, absXW / vrefKts)) * 180 / Math.PI);
       const pctLabel = pct < 40 ? 'well within limits' : pct < 70 ? 'moderate for this aircraft' : pct < 90 ? 'challenging — stay sharp' : 'near the limit — consider a different runway or waiting';
-      acLine = `<br><br>For the <strong>${ac.name}</strong> (max demonstrated crosswind ${ac.maxCrosswind} kts, Vref ${vrefKts} kts): this ${absXW}-kt crosswind is <strong>${pct}% of its limit</strong> — ${pctLabel}. At Vref you'll need roughly <strong>${crabDeg}° of crab</strong> into the wind on final${ac.type === 'turbine' ? ` — less than a slower piston would need at the same crosswind, because the higher approach speed dilutes the wind's sideways effect` : ''}.`;
+      const crabDesc = crabDeg <= 5  ? `just a slight nose-left nudge`
+                     : crabDeg <= 10 ? `a noticeable turn of the nose into the wind`
+                     : crabDeg <= 18 ? `a clearly visible nose angle into the wind`
+                     :                 `a large nose angle into the wind`;
+      acLine = `<br><br>For the <strong>${ac.name}</strong> (max demonstrated crosswind ${ac.maxCrosswind} kts): this ${absXW}-kt crosswind is <strong>${pct}% of its limit</strong> — ${pctLabel}. On final, you'll need to deliberately aim the nose into the wind — about <strong>${crabDeg}°</strong>, which will look like ${crabDesc}. The runway centreline will still pass straight under you even though the nose isn't pointed at it${ac.type === 'turbine' ? `; because the ${ac.name} flies a faster approach than a typical trainer, that nose angle is actually smaller than it would be in a slower aircraft` : ''}.`;
     }
 
     // Controls at landing
