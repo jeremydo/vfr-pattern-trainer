@@ -193,7 +193,7 @@ export class PatternChecker {
       case PHASES.FLARE: {
         const xwHint = absXW < 3
           ? 'Flare — idle power, raise the nose slightly, let it settle.'
-          : `Flare — idle power. Lower the ${xwSide} wing with ${xwSide} aileron, use ${oppSide} rudder to keep the nose straight. Let it settle.`;
+          : `Flare — idle power. Lower the ${xwSide} wing, use ${oppSide} rudder to keep the nose straight. Let it settle.`;
         return xwHint;
       }
       case PHASES.LANDED:
